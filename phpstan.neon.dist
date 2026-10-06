@@ -1,0 +1,8 @@
+parameters:
+    level: 8
+    paths:
+        - src
+        - config
+    ignoreErrors:
+        # The trait is used by application models; tests/Fixtures/Product.php covers it at runtime.
+        - identifier: trait.unused

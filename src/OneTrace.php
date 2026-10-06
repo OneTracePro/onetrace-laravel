@@ -1,0 +1,392 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OneTrace\Laravel;
+
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Http\Request;
+use OneTrace\Client;
+use OneTrace\Laravel\Contracts\HasOneTraceTraits;
+use OneTrace\Laravel\Contracts\OneTraceProduct;
+use OneTrace\Laravel\Jobs\SendEvents;
+use OneTrace\Laravel\Jobs\SyncProducts;
+use OneTrace\Resource\Events;
+
+/**
+ * Entry point behind the OneTrace facade.
+ *
+ * Events and product changes are collected and sent according to config("onetrace.send"): after the response,
+ * via the queue or immediately. The visitor id from the tracker cookie and the signed-in user are added to
+ * events automatically. Every other API call goes straight to the OneTrace\Client: OneTrace::segments()->list().
+ *
+ * @mixin Client
+ */
+class OneTrace
+{
+    public const SEND_AFTER_RESPONSE = 'after_response';
+    public const SEND_QUEUE = 'queue';
+    public const SEND_SYNC = 'sync';
+
+    /** @var list<array<string, mixed>> */
+    protected array $events = [];
+
+    /** @var array<string, array<string, mixed>> products to create or update, by id */
+    protected array $upserts = [];
+
+    /** @var array<string, true> product ids to delete */
+    protected array $deletes = [];
+
+    public function __construct(protected Application $app)
+    {
+    }
+
+    public function __destruct()
+    {
+        $this->flushQuietly();
+    }
+
+    /**
+     * An action of the user or the visitor: OneTrace::track('order_completed', ['order_id' => 'A-1001', 'amount' => 9980]).
+     *
+     * @param array<string, mixed> $properties
+     * @param array<string, mixed> $message    other message fields: userId, anonymousId, messageId, timestamp, context
+     */
+    public function track(string $event, array $properties = [], array $message = []): void
+    {
+        $this->record('track', array_merge(['event' => $event, 'properties' => $properties], $message));
+    }
+
+    /**
+     * Links the visitor to a user and updates profile traits. Without $user — the signed-in user; with traits only
+     * (OneTrace::identify(null, ['email' => $email])) — the visitor from the tracker cookie, e.g. after a newsletter form.
+     *
+     * @param Authenticatable|string|int|null $user
+     * @param array<string, mixed>            $traits added to the user's own traits (email, name or oneTraceTraits())
+     * @param array<string, mixed>            $message
+     */
+    public function identify(Authenticatable|string|int|null $user = null, array $traits = [], array $message = []): void
+    {
+        $user ??= $this->currentUser();
+
+        if ($user instanceof Authenticatable) {
+            $traits = array_merge($this->traitsOf($user), $traits);
+            $user = $user->getAuthIdentifier();
+        }
+
+        if ($user !== null && !\is_scalar($user)) {
+            throw new \InvalidArgumentException('identify() takes a user model or a user id.');
+        }
+
+        $this->record('identify', array_merge(
+            ($user === null || $user === '') ? [] : ['userId' => (string) $user],
+            ['traits' => $traits],
+            $message
+        ));
+    }
+
+    /**
+     * A page view tracked from the server.
+     *
+     * @param array<string, mixed> $properties
+     * @param array<string, mixed> $message
+     */
+    public function page(?string $name = null, array $properties = [], array $message = []): void
+    {
+        $request = $this->request();
+
+        if ($request !== null) {
+            $properties += array_filter(['url' => $request->fullUrl(), 'path' => '/' . ltrim($request->path(), '/'), 'referrer' => $request->headers->get('referer')]);
+        }
+
+        $this->record('page', array_merge(array_filter(['name' => $name]), ['properties' => $properties], $message));
+    }
+
+    /**
+     * Merges a previous identifier into a user (by default the signed-in one).
+     */
+    public function alias(string|int $previousId, string|int|null $userId = null): void
+    {
+        $userId ??= $this->currentUser()?->getAuthIdentifier();
+
+        if ($userId === null || !\is_scalar($userId)) {
+            throw new \InvalidArgumentException('alias() needs a user id or a signed-in user.');
+        }
+
+        $this->record('alias', ['previousId' => (string) $previousId, 'userId' => (string) $userId]);
+    }
+
+    /**
+     * Creates or updates products in the catalog: models implementing OneTraceProduct or arrays with "id".
+     *
+     * @param iterable<OneTraceProduct|array<string, mixed>> $products
+     */
+    public function syncProducts(iterable $products): void
+    {
+        if (!$this->enabled()) {
+            return;
+        }
+
+        foreach ($products as $product) {
+            $data = $product instanceof OneTraceProduct ? $product->toOneTraceProduct() : $product;
+            $id = $data['id'] ?? null;
+
+            if (!\is_scalar($id) || (string) $id === '') {
+                throw new \InvalidArgumentException('A product needs an "id".');
+            }
+
+            $data['id'] = (string) $id;
+            unset($this->deletes[$data['id']]);
+            $this->upserts[$data['id']] = $data;
+        }
+
+        $this->sendNowIfSync();
+    }
+
+    /**
+     * Deletes products from the catalog by id.
+     *
+     * @param iterable<string|int|OneTraceProduct> $ids
+     */
+    public function deleteProducts(iterable $ids): void
+    {
+        if (!$this->enabled()) {
+            return;
+        }
+
+        foreach ($ids as $id) {
+            $id = $id instanceof OneTraceProduct ? $id->oneTraceProductId() : (string) $id;
+            unset($this->upserts[$id]);
+            $this->deletes[$id] = true;
+        }
+
+        $this->sendNowIfSync();
+    }
+
+    /**
+     * Sends everything collected so far (events and products). Called automatically after the response,
+     * after each queued job and at the end of artisan commands; errors are thrown.
+     */
+    public function flush(): void
+    {
+        $events = $this->events;
+        $upserts = array_values($this->upserts);
+        $deletes = array_map('strval', array_keys($this->deletes));
+        $this->events = $this->upserts = $this->deletes = [];
+
+        if ($events !== []) {
+            $this->deliverEvents($events);
+        }
+
+        if ($upserts !== [] || $deletes !== []) {
+            $this->deliverProducts($upserts, $deletes);
+        }
+    }
+
+    /**
+     * flush() that reports errors to the exception handler instead of throwing: used after the response.
+     */
+    public function flushQuietly(): void
+    {
+        try {
+            $this->flush();
+        } catch (\Throwable $e) {
+            if ($this->app->bound(ExceptionHandler::class)) {
+                $this->app->make(ExceptionHandler::class)->report($e);
+            }
+        }
+    }
+
+    /**
+     * Messages and product changes waiting to be sent.
+     */
+    public function pending(): int
+    {
+        return \count($this->events) + \count($this->upserts) + \count($this->deletes);
+    }
+
+    /**
+     * The API client for everything else: profiles, segments, journeys, campaigns, recommendations…
+     */
+    public function client(): Client
+    {
+        return $this->app->make(Client::class);
+    }
+
+    /**
+     * Proxies OneTrace::segments(), OneTrace::profiles() and other resources to the client.
+     *
+     * @param array<int, mixed> $arguments
+     */
+    public function __call(string $method, array $arguments): mixed
+    {
+        $client = $this->client();
+
+        if (!method_exists($client, $method)) {
+            throw new \BadMethodCallException(sprintf('Method %s::%s does not exist.', static::class, $method));
+        }
+
+        return $client->{$method}(...$arguments);
+    }
+
+    /**
+     * The visitor id the website tracker keeps in its cookie, if the current request has one.
+     */
+    public function anonymousId(): ?string
+    {
+        $request = $this->request();
+        $name = (string) $this->config('anonymous_cookie', 'cdp_aid');
+
+        if ($request === null || $name === '') {
+            return null;
+        }
+
+        // Read the raw header: the cookie is set by JavaScript and is not encrypted, so EncryptCookies would drop it.
+        foreach (explode(';', (string) $request->headers->get('cookie')) as $pair) {
+            [$key, $value] = array_pad(explode('=', trim($pair), 2), 2, '');
+
+            if ($key === $name) {
+                $value = urldecode($value);
+
+                return preg_match('/^[A-Za-z0-9._:-]{1,100}$/', $value) === 1 ? $value : null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether events are sent: enabled in the config and at least one key is set.
+     */
+    public function enabled(): bool
+    {
+        return (bool) $this->config('enabled', true) && ($this->config('write_key') || $this->config('secret_key'));
+    }
+
+    /**
+     * @param array<string, mixed> $message
+     */
+    protected function record(string $type, array $message): void
+    {
+        if (!$this->enabled()) {
+            return;
+        }
+
+        if (!isset($message['anonymousId']) && ($anonymousId = $this->anonymousId()) !== null) {
+            $message['anonymousId'] = $anonymousId;
+        }
+
+        if ($type !== 'alias' && !isset($message['userId']) && ($id = $this->currentUser()?->getAuthIdentifier()) !== null && \is_scalar($id)) {
+            $message['userId'] = (string) $id;
+        }
+
+        $request = $this->request();
+
+        if ($request !== null) {
+            $message['context'] = array_merge(array_filter(['ip' => $request->ip(), 'userAgent' => $request->userAgent()]), (array) ($message['context'] ?? []));
+        }
+
+        // Validated and stamped now: errors surface at the call, the time and messageId are those of the action.
+        $this->events[] = Events::prepare($type, $message);
+        $this->sendNowIfSync();
+    }
+
+    /**
+     * @param list<array<string, mixed>> $events
+     */
+    protected function deliverEvents(array $events): void
+    {
+        if ($this->config('send') === self::SEND_QUEUE) {
+            $this->dispatch(new SendEvents($events));
+
+            return;
+        }
+
+        $this->client()->events()->batch($events);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $upserts
+     * @param list<string>               $deletes
+     */
+    protected function deliverProducts(array $upserts, array $deletes): void
+    {
+        $job = new SyncProducts($upserts, $deletes);
+
+        if ($this->config('send') === self::SEND_QUEUE) {
+            $this->dispatch($job);
+
+            return;
+        }
+
+        $job->handle($this->client());
+    }
+
+    protected function dispatch(SendEvents|SyncProducts $job): void
+    {
+        $job->onConnection($this->config('queue.connection'))->onQueue($this->config('queue.name'));
+        $this->app->make(\Illuminate\Contracts\Bus\Dispatcher::class)->dispatch($job);
+    }
+
+    protected function sendNowIfSync(): void
+    {
+        if ($this->config('send') === self::SEND_SYNC) {
+            $this->flush();
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function traitsOf(Authenticatable $user): array
+    {
+        if ($user instanceof HasOneTraceTraits) {
+            return $user->oneTraceTraits();
+        }
+
+        $traits = [];
+
+        foreach (['email', 'name'] as $field) {
+            $value = $user->{$field} ?? null;
+
+            if (\is_scalar($value) && $value !== '') {
+                $traits[$field] = $value;
+            }
+        }
+
+        return $traits;
+    }
+
+    protected function currentUser(): ?Authenticatable
+    {
+        if (!$this->app->bound('auth')) {
+            return null;
+        }
+
+        try {
+            $user = $this->app->make('auth')->user();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $user instanceof Authenticatable ? $user : null;
+    }
+
+    protected function request(): ?Request
+    {
+        if ($this->app->runningInConsole() && !$this->app->runningUnitTests()) {
+            return null;
+        }
+
+        $request = $this->app->bound('request') ? $this->app->make('request') : null;
+
+        return $request instanceof Request ? $request : null;
+    }
+
+    protected function config(string $key, mixed $default = null): mixed
+    {
+        return $this->app->make('config')->get('onetrace.' . $key, $default);
+    }
+}

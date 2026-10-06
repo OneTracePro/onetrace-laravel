@@ -1,0 +1,77 @@
+{
+    "name": "onetracepro/onetrace-laravel",
+    "description": "Laravel integration for the OneTrace.pro customer data platform: events after the response or via queues, tracker Blade directive, automatic identify, Eloquent product sync and a test fake.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "onetrace",
+        "laravel",
+        "cdp",
+        "customer data platform",
+        "analytics",
+        "tracking",
+        "events",
+        "marketing automation",
+        "recommendations"
+    ],
+    "homepage": "https://onetrace.pro",
+    "support": {
+        "issues": "https://github.com/OneTracePro/onetrace-laravel/issues",
+        "source": "https://github.com/OneTracePro/onetrace-laravel",
+        "docs": "https://onetrace.pro/en/docs/api"
+    },
+    "require": {
+        "php": "^8.1",
+        "illuminate/auth": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/bus": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/console": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/container": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/contracts": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/cookie": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/database": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/events": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/http": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/queue": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/support": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/view": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "onetracepro/onetrace-php": "^1.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0 || ^9.0 || ^10.0 || ^11.0",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^10.5 || ^11.5.50 || ^12.5.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "OneTrace\\Laravel\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "OneTrace\\Laravel\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "OneTrace\\Laravel\\OneTraceServiceProvider"
+            ],
+            "aliases": {
+                "OneTrace": "OneTrace\\Laravel\\Facades\\OneTrace"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "check": [
+            "@analyse",
+            "@test"
+        ]
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Laravel ${{ matrix.laravel }} · PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { laravel: '10', testbench: '^8.0', php: '8.1' }
+          - { laravel: '10', testbench: '^8.0', php: '8.3' }
+          - { laravel: '11', testbench: '^9.0', php: '8.2' }
+          - { laravel: '11', testbench: '^9.0', php: '8.4' }
+          - { laravel: '12', testbench: '^10.0', php: '8.2' }
+          - { laravel: '12', testbench: '^10.0', php: '8.5' }
+          - { laravel: '13', testbench: '^11.0', php: '8.3' }
+          - { laravel: '13', testbench: '^11.0', php: '8.5' }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, json, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+      # Laravel 10 and 11 get no security fixes any more, so Composer marks every release as insecure.
+      - name: Allow end-of-life Laravel versions
+        if: matrix.laravel == '10' || matrix.laravel == '11'
+        run: composer config audit.block-insecure false
+      - name: Install dependencies
+        run: |
+          composer require --dev "orchestra/testbench:${{ matrix.testbench }}" --no-update --no-interaction
+          composer update --no-interaction --no-progress --with-all-dependencies
+      - name: Tests
+        run: vendor/bin/phpunit
+
+  static-analysis:
+    name: PHPStan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+      - run: composer validate --strict
+      - run: composer update --no-interaction --no-progress
+      - run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
