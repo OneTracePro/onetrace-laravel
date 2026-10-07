@@ -17,6 +17,8 @@ use OneTrace\Laravel\Testing\OneTraceFake;
  * @method static void flush()
  * @method static int pending()
  * @method static string|null anonymousId()
+ * @method static void useAnonymousId(?string $anonymousId)
+ * @method static void resolveAnonymousIdUsing(?callable $resolver)
  * @method static bool enabled()
  * @method static \OneTrace\Client client()
  * @method static \OneTrace\Resource\Events events()

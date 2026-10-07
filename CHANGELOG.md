@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.1.0 — 2026-10-07
+
+- `OneTrace::useAnonymousId()` sets the visitor id for the rest of the request or job, including the automatic identify on login and registration: profiles are merged with the history before sign-in when the id does not come in the tracker cookie (mobile apps, SPAs, forms, queued jobs).
+- `OneTrace::resolveAnonymousIdUsing()` for a custom source and the `anonymous_header` option (`ONETRACE_ANONYMOUS_HEADER`) for a request header.
+
 ## 1.0.0 — 2026-10-06
 
 First release.

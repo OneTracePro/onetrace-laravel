@@ -51,6 +51,12 @@ return [
     'anonymous_cookie' => 'cdp_aid',
 
     /*
+    | Request header with the visitor id, for clients without the tracker cookie (mobile apps, SPAs calling your API),
+    | e.g. "X-Anonymous-Id". OneTrace::useAnonymousId() and OneTrace::resolveAnonymousIdUsing() take precedence.
+    */
+    'anonymous_header' => env('ONETRACE_ANONYMOUS_HEADER'),
+
+    /*
     | identify() the user automatically on Laravel's Login and Registered events. Traits come from
     | oneTraceTraits() of the user model when it implements OneTrace\Laravel\Contracts\HasOneTraceTraits,
     | otherwise email and name.

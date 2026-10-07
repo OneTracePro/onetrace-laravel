@@ -39,6 +39,12 @@ class OneTrace
     /** @var array<string, true> product ids to delete */
     protected array $deletes = [];
 
+    /** Visitor id set with useAnonymousId() for the current request or job. */
+    protected ?string $anonymousId = null;
+
+    /** @var (\Closure(?Request): (string|null))|null set once in a service provider */
+    protected static ?\Closure $anonymousIdResolver = null;
+
     public function __construct(protected Application $app)
     {
     }
@@ -232,14 +238,65 @@ class OneTrace
     }
 
     /**
-     * The visitor id the website tracker keeps in its cookie, if the current request has one.
+     * Sets the visitor id for the rest of the current request or job: every following event — including the automatic
+     * identify on login and registration — carries it, so the profile is merged with the visitor's history before
+     * sign-in. Use it when the id does not come in the tracker cookie: from a mobile app, an SPA, a form field or a job
+     * payload. Null goes back to the automatic sources.
+     */
+    public function useAnonymousId(?string $anonymousId): void
+    {
+        $this->anonymousId = self::validAnonymousId($anonymousId);
+
+        if ($anonymousId !== null && $this->anonymousId === null) {
+            throw new \InvalidArgumentException('An anonymous id is 1–100 characters: letters, digits, ".", "_", ":", "-".');
+        }
+    }
+
+    /**
+     * Your own way to find the visitor id, set once in a service provider:
+     * OneTrace::resolveAnonymousIdUsing(fn (?Request $request) => $request?->input('anonymous_id')).
+     * It is asked after useAnonymousId() and before the header and the tracker cookie. Null removes it.
+     *
+     * @param (callable(?Request): (string|null))|null $resolver
+     */
+    public static function resolveAnonymousIdUsing(?callable $resolver): void
+    {
+        static::$anonymousIdResolver = $resolver === null ? null : \Closure::fromCallable($resolver);
+    }
+
+    /**
+     * The visitor id added to events: set with useAnonymousId(), from your resolver, from the request header
+     * config("onetrace.anonymous_header") or from the website tracker's cookie — the first one found.
      */
     public function anonymousId(): ?string
     {
+        if ($this->anonymousId !== null) {
+            return $this->anonymousId;
+        }
+
         $request = $this->request();
+
+        if (static::$anonymousIdResolver !== null) {
+            $resolved = (static::$anonymousIdResolver)($request);
+
+            if (($resolved = self::validAnonymousId(\is_scalar($resolved) ? (string) $resolved : null)) !== null) {
+                return $resolved;
+            }
+        }
+
+        if ($request === null) {
+            return null;
+        }
+
+        $header = (string) $this->config('anonymous_header', '');
+
+        if ($header !== '' && ($value = self::validAnonymousId($request->headers->get($header))) !== null) {
+            return $value;
+        }
+
         $name = (string) $this->config('anonymous_cookie', 'cdp_aid');
 
-        if ($request === null || $name === '') {
+        if ($name === '') {
             return null;
         }
 
@@ -248,13 +305,16 @@ class OneTrace
             [$key, $value] = array_pad(explode('=', trim($pair), 2), 2, '');
 
             if ($key === $name) {
-                $value = urldecode($value);
-
-                return preg_match('/^[A-Za-z0-9._:-]{1,100}$/', $value) === 1 ? $value : null;
+                return self::validAnonymousId(urldecode($value));
             }
         }
 
         return null;
+    }
+
+    protected static function validAnonymousId(?string $value): ?string
+    {
+        return $value !== null && preg_match('/^[A-Za-z0-9._:-]{1,100}$/', $value) === 1 ? $value : null;
     }
 
     /**

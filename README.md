@@ -62,7 +62,7 @@ OneTrace::page('Checkout');
 OneTrace::alias($oldUserId);                            // merge an old id into the signed-in user
 ```
 
-Each event gets the signed-in user (`userId`), the visitor id from the tracker cookie (`anonymousId`), the IP and user agent, a `messageId` and a timestamp. Calls validate the event right away and return immediately; sending depends on `ONETRACE_SEND`:
+Each event gets the signed-in user (`userId`), the visitor id (`anonymousId`, see [below](#visitor-id-before-sign-in)), the IP and user agent, a `messageId` and a timestamp. Calls validate the event right away and return immediately; sending depends on `ONETRACE_SEND`:
 
 | `ONETRACE_SEND` | |
 |---|---|
@@ -71,6 +71,25 @@ Each event gets the signed-in user (`userId`), the visitor id from the tracker c
 | `sync` | sent immediately, the call waits for the API |
 
 Errors of background sending are reported to your exception handler; they never break the response. `OneTrace::flush()` sends right away (useful in long-running loops). `ONETRACE_ENABLED=false` turns sending off; without keys nothing is sent either.
+
+### Visitor id before sign-in
+
+Events before sign-in belong to an anonymous visitor; when the same `anonymousId` comes with the user's `identify`, the visitor's history is merged into the user's profile. On websites with the tracker this works by itself — the id comes from the tracker's cookie. Elsewhere, tell the package where the id is:
+
+```php
+// For the rest of the request or job — including the automatic identify on login and registration:
+OneTrace::useAnonymousId($request->input('anonymous_id'));
+
+// Mobile apps and SPAs send it in a header — in .env: ONETRACE_ANONYMOUS_HEADER=X-Anonymous-Id
+
+// Any other source, once in a service provider:
+OneTrace::resolveAnonymousIdUsing(fn (?Request $request) => $request?->session()->get('visitor_id'));
+
+// One call only:
+OneTrace::identify($user, [], ['anonymousId' => $visitorId]);
+```
+
+The first one found wins: `useAnonymousId()`, the resolver, the header, the tracker cookie. Registration handled in a queued job: pass the id with the job and call `OneTrace::useAnonymousId()` in it. An id the user had on another device can be merged later with `OneTrace::alias($oldId)`.
 
 ### Automatic identify
 
@@ -179,6 +198,7 @@ Also: `assertTrackedTimes()`, `assertPageViewed()`, `assertProductDeleted()`, `a
 | `language` | `ONETRACE_LANGUAGE` | `en` | language of API error messages |
 | `timeout`, `max_retries` | `ONETRACE_TIMEOUT`, `ONETRACE_MAX_RETRIES` | `10`, `3` | |
 | `anonymous_cookie` | | `cdp_aid` | the tracker's visitor cookie |
+| `anonymous_header` | `ONETRACE_ANONYMOUS_HEADER` | — | request header with the visitor id (mobile apps, SPAs) |
 | `identify.on_login`, `identify.on_register` | | `true` | automatic identify |
 | `tracker.identify`, `tracker.reset_on_logout` | | `true` | `@onetrace` behaviour |
 
