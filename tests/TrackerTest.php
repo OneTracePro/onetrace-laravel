@@ -54,6 +54,17 @@ final class TrackerTest extends TestCase
         self::assertStringNotContainsString('</script><script>', $html);
     }
 
+    public function testBotsCanBeTracked(): void
+    {
+        self::assertStringNotContainsString('ignoreBots', Blade::render('@onetrace'));
+
+        config(['onetrace.tracker.ignore_bots' => false]);
+        self::assertStringContainsString('cdp.init("cdp_wk_test", { host: "https://cdp.example.com", ignoreBots: false });', Blade::render('@onetrace'));
+
+        config(['onetrace.tracker.ignore_bots' => true]);
+        self::assertStringContainsString('ignoreBots: false', Blade::render("@onetrace(['ignore_bots' => false])"));
+    }
+
     public function testRendersNothingWithoutAWriteKey(): void
     {
         config(['onetrace.write_key' => null]);

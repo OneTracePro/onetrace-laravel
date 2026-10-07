@@ -22,7 +22,7 @@ use OneTrace\Laravel\Listeners\AuthListener;
 
 class OneTraceServiceProvider extends ServiceProvider
 {
-    public const VERSION = '1.1.1';
+    public const VERSION = '1.2.0';
 
     public function register(): void
     {

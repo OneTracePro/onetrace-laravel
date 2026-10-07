@@ -73,6 +73,9 @@ return [
     'tracker' => [
         'identify' => true,
         'reset_on_logout' => true,
+        // Crawlers, link previews, monitoring services and automated browsers are not tracked (tracker 1.4+);
+        // false tracks everyone, e.g. to test the integration with Playwright or Selenium.
+        'ignore_bots' => (bool) env('ONETRACE_IGNORE_BOTS', true),
     ],
 
 ];

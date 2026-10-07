@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.0 — 2026-10-07
+
+- `onetrace.tracker.ignore_bots` (`ONETRACE_IGNORE_BOTS`) and the `ignore_bots` option of `@onetrace`: the tracker (1.4+) skips crawlers, link previews, monitoring services and automated browsers by default; false tracks everyone, e.g. for tests with Playwright or Selenium.
+
 ## 1.1.1 — 2026-10-07
 
 Fixes for Laravel Octane (Swoole, RoadRunner, FrankenPHP), checked on a real Octane Swoole server:

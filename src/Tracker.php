@@ -23,8 +23,9 @@ class Tracker
     }
 
     /**
-     * @param array{nonce?: string|null, page?: bool} $options nonce: CSP nonce (Vite's nonce by default);
-     *                                                       page: record the page view (true by default)
+     * @param array{nonce?: string|null, page?: bool, ignore_bots?: bool} $options nonce: CSP nonce (Vite's nonce by
+     *        default); page: record the page view (true by default); ignore_bots: skip crawlers and automated
+     *        browsers (config("onetrace.tracker.ignore_bots") by default)
      */
     public function render(array $options = []): HtmlString
     {
@@ -38,7 +39,7 @@ class Tracker
         $host = (string) preg_replace('#/api/v1/?$#', '', rtrim((string) $config->get('onetrace.url'), '/'));
         $lines = [
             "!function(w,d,u){var c=w.cdp=w.cdp||[];if(c.version)return;['init','page','track','identify','alias','reset','widgets','renderRecommendations'].forEach(function(m){c[m]=c[m]||function(){c.push([m].concat([].slice.call(arguments)))}});var s=d.createElement('script');s.async=1;s.src=u;d.head.appendChild(s)}(window,document," . self::js($host . '/tracker/cdp.js') . ');',
-            'cdp.init(' . self::js($key) . ', { host: ' . self::js($host) . ' });',
+            'cdp.init(' . self::js($key) . ', { host: ' . self::js($host) . (($options['ignore_bots'] ?? $config->get('onetrace.tracker.ignore_bots', true)) ? '' : ', ignoreBots: false') . ' });',
         ];
 
         $request = $this->app->bound('request') ? $this->app->make('request') : null;

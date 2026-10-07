@@ -41,7 +41,9 @@ Put the directive into the `<head>` of your layout:
 </head>
 ```
 
-It prints the tracker install code with your write key and records the page view. For a signed-in user it links the browser to the user's id (only the id is printed into the page, no personal data), and on the first page after logout it resets the visitor so the next person on the device starts fresh. Options: `@onetrace(['nonce' => $nonce, 'page' => false])`; Vite's CSP nonce is used automatically. Product events, widgets and Web Push in the browser are described in your account under **Site**.
+It prints the tracker install code with your write key and records the page view. For a signed-in user it links the browser to the user's id (only the id is printed into the page, no personal data), and on the first page after logout it resets the visitor so the next person on the device starts fresh. Options: `@onetrace(['nonce' => $nonce, 'page' => false, 'ignore_bots' => false])`; Vite's CSP nonce is used automatically.
+
+Search engine crawlers, link previews, monitoring services and automated browsers (Playwright, Selenium) are not tracked: the tracker sends no events and sets no cookies for them, while recommendation widgets are still shown. To track everyone — for example, to test the integration with an automated browser — set `ONETRACE_IGNORE_BOTS=false` (or `'ignore_bots' => false` in the directive) in that environment. Product events, widgets and Web Push in the browser are described in your account under **Site**.
 
 ## Events from the backend
 
@@ -201,6 +203,7 @@ Also: `assertTrackedTimes()`, `assertPageViewed()`, `assertProductDeleted()`, `a
 | `anonymous_header` | `ONETRACE_ANONYMOUS_HEADER` | — | request header with the visitor id (mobile apps, SPAs) |
 | `identify.on_login`, `identify.on_register` | | `true` | automatic identify |
 | `tracker.identify`, `tracker.reset_on_logout` | | `true` | `@onetrace` behaviour |
+| `tracker.ignore_bots` | `ONETRACE_IGNORE_BOTS` | `true` | skip crawlers and automated browsers in the tracker |
 
 ### Octane and queue workers
 
