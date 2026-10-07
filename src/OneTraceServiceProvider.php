@@ -7,7 +7,9 @@ namespace OneTrace\Laravel;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Support\ServiceProvider;
@@ -20,7 +22,7 @@ use OneTrace\Laravel\Listeners\AuthListener;
 
 class OneTraceServiceProvider extends ServiceProvider
 {
-    public const VERSION = '1.1.0';
+    public const VERSION = '1.1.1';
 
     public function register(): void
     {
@@ -57,6 +59,15 @@ class OneTraceServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // The tracker sets its cookie from JavaScript, unencrypted: EncryptCookies would replace it with null.
+        // Laravel 11+; on Laravel 10 add the cookie to $except of the application's EncryptCookies (see README).
+        $cookie = $this->app->make('config')->get('onetrace.anonymous_cookie');
+
+        // @phpstan-ignore function.alreadyNarrowedType (absent in Laravel 10)
+        if (\is_string($cookie) && $cookie !== '' && method_exists(EncryptCookies::class, 'except')) {
+            EncryptCookies::except($cookie);
+        }
+
         if ($this->app->runningInConsole()) {
             $this->publishes([__DIR__ . '/../config/onetrace.php' => $this->app->configPath('onetrace.php')], 'onetrace-config');
             $this->commands([SyncProductsCommand::class]);
@@ -74,14 +85,25 @@ class OneTraceServiceProvider extends ServiceProvider
         $events->listen(Registered::class, [AuthListener::class, 'registered']);
         $events->listen(Logout::class, [AuthListener::class, 'logout']);
 
-        // After the response (and at the end of artisan commands), and after every queued job.
-        $flush = function (): void {
-            if ($this->app->resolved(OneTrace::class)) {
-                $this->app->make(OneTrace::class)->flushQuietly();
+        // After the response (and at the end of artisan commands), and after every queued job. The application is
+        // taken at call time: under Octane each request runs in a clone of the booted one, holding its own collector.
+        $this->app->terminating(static function (Application $app): void {
+            self::flush($app);
+        });
+        $events->listen([JobProcessed::class, JobExceptionOccurred::class], static function (): void {
+            $app = Container::getInstance();
+
+            if ($app instanceof Application) {
+                self::flush($app);
             }
-        };
-        $this->app->terminating($flush);
-        $events->listen([JobProcessed::class, JobExceptionOccurred::class], $flush);
+        });
+    }
+
+    private static function flush(Application $app): void
+    {
+        if ($app->resolved(OneTrace::class)) {
+            $app->make(OneTrace::class)->flushQuietly();
+        }
     }
 
     private function registerAbout(): void

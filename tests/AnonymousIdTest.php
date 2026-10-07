@@ -43,6 +43,12 @@ final class AnonymousIdTest extends TestCase
             return response('ok');
         });
 
+        $router->get('/web/ping', static function () {
+            OneTrace::track('ping', [], ['userId' => '1']);
+
+            return response('ok');
+        })->middleware('web');
+
         $router->get('/api/ping', static function () {
             OneTrace::track('ping', [], ['userId' => '1']);
 
@@ -89,7 +95,7 @@ final class AnonymousIdTest extends TestCase
     public function testPriorityExplicitThenResolverThenHeaderThenCookie(): void
     {
         config(['onetrace.anonymous_header' => 'X-Anonymous-Id']);
-        $this->app->instance('request', Request::create('/', 'GET', [], ['cdp_aid' => 'x'], [], ['HTTP_COOKIE' => 'cdp_aid=from-cookie', 'HTTP_X_ANONYMOUS_ID' => 'from-header']));
+        $this->app->instance('request', Request::create('/', 'GET', [], ['cdp_aid' => 'from-cookie'], [], ['HTTP_COOKIE' => 'cdp_aid=from-cookie', 'HTTP_X_ANONYMOUS_ID' => 'from-header']));
         $manager = $this->app->make(Manager::class);
 
         self::assertSame('from-header', $manager->anonymousId());
@@ -104,6 +110,18 @@ final class AnonymousIdTest extends TestCase
         Manager::resolveAnonymousIdUsing(static fn (): ?string => null);
         config(['onetrace.anonymous_header' => null]);
         self::assertSame('from-cookie', $manager->anonymousId());
+    }
+
+    public function testTheTrackerCookieSurvivesEncryptCookies(): void
+    {
+        if (!method_exists(\Illuminate\Cookie\Middleware\EncryptCookies::class, 'except')) {
+            self::markTestSkipped('Laravel 10: the application adds the cookie to EncryptCookies::$except itself.');
+        }
+
+        // Cookies only in the cookie bag, as Octane passes them, through the web middleware with EncryptCookies.
+        $this->withUnencryptedCookie('cdp_aid', 'visitor-9')->get('/web/ping')->assertOk();
+
+        self::assertSame('visitor-9', $this->sentMessages()[0]['anonymousId']);
     }
 
     public function testRejectsInvalidIds(): void

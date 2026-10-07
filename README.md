@@ -202,7 +202,16 @@ Also: `assertTrackedTimes()`, `assertPageViewed()`, `assertProductDeleted()`, `a
 | `identify.on_login`, `identify.on_register` | | `true` | automatic identify |
 | `tracker.identify`, `tracker.reset_on_logout` | | `true` | `@onetrace` behaviour |
 
-The visitor cookie is set by JavaScript and read from the raw header, so it does not need to be excluded from `EncryptCookies`. The package is safe for Octane and long-running queue workers: the collector is scoped to the request or job.
+### Octane and queue workers
+
+The package works under Laravel Octane (checked on Swoole) and in long-running queue workers: the collector is scoped to the request or job, events are sent when each request terminates or each job finishes, and `useAnonymousId()` never leaks into the next request.
+
+The tracker's cookie is set by JavaScript and is not encrypted, so the package excludes it from `EncryptCookies` (Laravel 11+). On **Laravel 10** add it yourself — required under Octane, recommended everywhere:
+
+```php
+// app/Http/Middleware/EncryptCookies.php
+protected $except = ['cdp_aid'];
+```
 
 ## Development
 

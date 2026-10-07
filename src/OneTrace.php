@@ -300,7 +300,14 @@ class OneTrace
             return null;
         }
 
-        // Read the raw header: the cookie is set by JavaScript and is not encrypted, so EncryptCookies would drop it.
+        // The provider keeps the cookie out of EncryptCookies (Laravel 11+); Octane passes cookies only this way.
+        $cookie = $request->cookies->get($name);
+
+        if (\is_string($cookie) && ($value = self::validAnonymousId($cookie)) !== null) {
+            return $value;
+        }
+
+        // Laravel 10 under PHP-FPM without the cookie in EncryptCookies::$except: the raw header still has it.
         foreach (explode(';', (string) $request->headers->get('cookie')) as $pair) {
             [$key, $value] = array_pad(explode('=', trim($pair), 2), 2, '');
 
@@ -434,12 +441,12 @@ class OneTrace
         return $user instanceof Authenticatable ? $user : null;
     }
 
+    /**
+     * The current request. Not tied to runningInConsole(): Octane serves requests from a CLI process, and in artisan
+     * commands and queue workers the request has no cookies, headers or client address anyway.
+     */
     protected function request(): ?Request
     {
-        if ($this->app->runningInConsole() && !$this->app->runningUnitTests()) {
-            return null;
-        }
-
         $request = $this->app->bound('request') ? $this->app->make('request') : null;
 
         return $request instanceof Request ? $request : null;

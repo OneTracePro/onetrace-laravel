@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.1.1 — 2026-10-07
+
+Fixes for Laravel Octane (Swoole, RoadRunner, FrankenPHP), checked on a real Octane Swoole server:
+
+- Events collected during a request are sent when that request terminates. Before, the after-response flush looked for them in the booted application instead of the request's sandbox, so they went out only when the sandbox was garbage-collected.
+- The request (tracker cookie, IP, user agent, page URL) is read in Octane workers too: it was skipped in every CLI process.
+- The tracker cookie is excluded from `EncryptCookies` (Laravel 11+), which turned it into null; Octane passes cookies only that way. On Laravel 10 add it to `$except` of your `EncryptCookies` middleware.
+
 ## 1.1.0 — 2026-10-07
 
 - `OneTrace::useAnonymousId()` sets the visitor id for the rest of the request or job, including the automatic identify on login and registration: profiles are merged with the history before sign-in when the id does not come in the tracker cookie (mobile apps, SPAs, forms, queued jobs).
