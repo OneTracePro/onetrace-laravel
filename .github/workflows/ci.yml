@@ -5,6 +5,9 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
+  schedule:
+    # Weekly: new releases of Laravel, Testbench and PHP reach the matrix before users do.
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -27,7 +30,7 @@ jobs:
           - { laravel: '13', testbench: '^11.0', php: '8.3' }
           - { laravel: '13', testbench: '^11.0', php: '8.5' }
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -49,7 +52,7 @@ jobs:
     name: PHPStan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
