@@ -152,6 +152,37 @@ class OneTrace
     }
 
     /**
+     * Product search for your results page: the visitor of the tracker cookie (the order by their interests) and the
+     * application locale (names in the catalog translation) are added unless given; the first page records the
+     * search event, from which the popular queries of the search box suggestions come.
+     *
+     * @param array<string, mixed> $params category, brand, price_min, price_max, sort, page, per_page, all, image_width,
+     *                                     anonymousId, language — see GET /api/v1/search
+     *
+     * @return array<string, mixed> items, total, page, per_page, relaxed, personalized, facets
+     */
+    public function searchProducts(string $query, array $params = []): array
+    {
+        if (!$this->enabled()) {
+            return ['items' => [], 'total' => 0, 'facets' => ['categories' => [], 'brands' => [], 'price' => ['min' => null, 'max' => null]]];
+        }
+
+        $params += array_filter(['anonymousId' => $this->anonymousId(), 'language' => $this->app->getLocale()]);
+        $result = $this->client()->search()->products($query, $params);
+        $query = trim($query);
+
+        if ($query !== '' && (int) ($params['page'] ?? 1) === 1) {
+            $this->track('search', array_filter([
+                'query' => mb_substr($query, 0, 200),
+                'results' => (int) ($result['total'] ?? 0),
+                'request_id' => $result['request_id'] ?? null,
+            ], static fn ($value): bool => $value !== null));
+        }
+
+        return $result;
+    }
+
+    /**
      * Deletes products from the catalog by id.
      *
      * @param iterable<string|int|OneTraceProduct> $ids

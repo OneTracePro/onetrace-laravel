@@ -76,6 +76,10 @@ return [
         // Crawlers, link previews, monitoring services and automated browsers are not tracked (tracker 1.4+);
         // false tracks everyone, e.g. to test the integration with Playwright or Selenium.
         'ignore_bots' => (bool) env('ONETRACE_IGNORE_BOTS', true),
+        // The visitor's language: "page" (<html lang>, e.g. app()->getLocale() in your layout), "auto" (the
+        // browser, the tracker's default), a code or false. Recommendations, widgets and search show the catalog
+        // translation, and messages pick the template version in this language.
+        'language' => env('ONETRACE_TRACKER_LANGUAGE'),
     ],
 
 ];

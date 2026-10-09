@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.3.0 — 2026-10-09
+
+- Product search: `OneTrace::searchProducts()` for your results page — the visitor of the tracker cookie and the application locale are added, the first page records the `search` event; `OneTrace::search()` for suggestions; the `<x-onetrace::search-box>` Blade component — a search box with suggestions of the tracker.
+- The visitor's language in `@onetrace`: the `language` option and `onetrace.tracker.language` (`ONETRACE_TRACKER_LANGUAGE`) — `page`, `auto`, a code or false; `setLanguage` is queued before the tracker loads.
+- Catalog translations: `translations` of `toOneTraceProduct()` and `syncProducts()` go to the platform as is.
+- Requires onetrace-php 1.4.
+
 ## 1.2.0 — 2026-10-07
 
 - `onetrace.tracker.ignore_bots` (`ONETRACE_IGNORE_BOTS`) and the `ignore_bots` option of `@onetrace`: the tracker (1.4+) skips crawlers, link previews, monitoring services and automated browsers by default; false tracks everyone, e.g. for tests with Playwright or Selenium.

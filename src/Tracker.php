@@ -23,9 +23,10 @@ class Tracker
     }
 
     /**
-     * @param array{nonce?: string|null, page?: bool, ignore_bots?: bool} $options nonce: CSP nonce (Vite's nonce by
-     *        default); page: record the page view (true by default); ignore_bots: skip crawlers and automated
-     *        browsers (config("onetrace.tracker.ignore_bots") by default)
+     * @param array{nonce?: string|null, page?: bool, ignore_bots?: bool, language?: string|false|null} $options nonce: CSP
+     *        nonce (Vite's nonce by default); page: record the page view (true by default); ignore_bots: skip crawlers
+     *        and automated browsers (config("onetrace.tracker.ignore_bots") by default); language: the visitor's
+     *        language — "page" (<html lang>), "auto" (the browser), a code or false (config("onetrace.tracker.language"))
      */
     public function render(array $options = []): HtmlString
     {
@@ -38,8 +39,10 @@ class Tracker
 
         $host = (string) preg_replace('#/api/v1/?$#', '', rtrim((string) $config->get('onetrace.url'), '/'));
         $lines = [
-            "!function(w,d,u){var c=w.cdp=w.cdp||[];if(c.version)return;['init','page','track','identify','alias','reset','widgets','renderRecommendations'].forEach(function(m){c[m]=c[m]||function(){c.push([m].concat([].slice.call(arguments)))}});var s=d.createElement('script');s.async=1;s.src=u;d.head.appendChild(s)}(window,document," . self::js($host . '/tracker/cdp.js') . ');',
-            'cdp.init(' . self::js($key) . ', { host: ' . self::js($host) . (($options['ignore_bots'] ?? $config->get('onetrace.tracker.ignore_bots', true)) ? '' : ', ignoreBots: false') . ' });',
+            "!function(w,d,u){var c=w.cdp=w.cdp||[];if(c.version)return;['init','page','track','identify','alias','reset','setLanguage','widgets','renderRecommendations'].forEach(function(m){c[m]=c[m]||function(){c.push([m].concat([].slice.call(arguments)))}});var s=d.createElement('script');s.async=1;s.src=u;d.head.appendChild(s)}(window,document," . self::js($host . '/tracker/cdp.js') . ');',
+            'cdp.init(' . self::js($key) . ', { host: ' . self::js($host)
+                . (($options['ignore_bots'] ?? $config->get('onetrace.tracker.ignore_bots', true)) ? '' : ', ignoreBots: false')
+                . self::language(\array_key_exists('language', $options) ? $options['language'] : $config->get('onetrace.tracker.language')) . ' });',
         ];
 
         $request = $this->app->bound('request') ? $this->app->make('request') : null;
@@ -65,6 +68,19 @@ class Tracker
         $attribute = \is_string($nonce) && $nonce !== '' ? ' nonce="' . e($nonce) . '"' : '';
 
         return new HtmlString("<script{$attribute}>\n" . implode("\n", $lines) . "\n</script>");
+    }
+
+    /**
+     * The language option of cdp.init(): recommendations, widgets and search show the catalog translation and
+     * messages pick the template version in it.
+     */
+    protected static function language(mixed $language): string
+    {
+        if ($language === false) {
+            return ', language: false';
+        }
+
+        return \is_string($language) && $language !== '' ? ', language: ' . self::js($language) : '';
     }
 
     protected function userId(): ?string

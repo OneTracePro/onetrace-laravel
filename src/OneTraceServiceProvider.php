@@ -78,6 +78,8 @@ class OneTraceServiceProvider extends ServiceProvider
             $blade->directive('onetrace', static function (string $expression): string {
                 return '<?php echo app(\\OneTrace\\Laravel\\Tracker::class)->render(' . ($expression !== '' ? $expression : '[]') . '); ?>';
             });
+            // <x-onetrace::search-box action="/search" />: a search box with suggestions of the tracker.
+            $blade->anonymousComponentPath(__DIR__ . '/../resources/views/components', 'onetrace');
         });
 
         $events = $this->app->make('events');

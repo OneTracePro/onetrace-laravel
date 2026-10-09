@@ -37,6 +37,15 @@ final class ProductsTest extends TestCase
         $fake->assertProductSynced('SKU-1');
     }
 
+    public function testSendsTranslationsOfProductsForOtherLanguagesOfTheStore(): void
+    {
+        $fake = OneTrace::fake();
+
+        OneTrace::syncProducts([['id' => 'SKU-1', 'name' => 'Кроссовки', 'translations' => ['en' => ['name' => 'Sneakers', 'url' => 'https://shop.example/en/sku-1']]]]);
+
+        $fake->assertProductSynced(static fn (array $data): bool => ($data['translations']['en']['name'] ?? null) === 'Sneakers');
+    }
+
     public function testHiddenModelsAreNotSynced(): void
     {
         $fake = OneTrace::fake();

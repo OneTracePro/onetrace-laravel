@@ -41,9 +41,28 @@ Put the directive into the `<head>` of your layout:
 </head>
 ```
 
-It prints the tracker install code with your write key and records the page view. For a signed-in user it links the browser to the user's id (only the id is printed into the page, no personal data), and on the first page after logout it resets the visitor so the next person on the device starts fresh. Options: `@onetrace(['nonce' => $nonce, 'page' => false, 'ignore_bots' => false])`; Vite's CSP nonce is used automatically.
+It prints the tracker install code with your write key and records the page view. For a signed-in user it links the browser to the user's id (only the id is printed into the page, no personal data), and on the first page after logout it resets the visitor so the next person on the device starts fresh. Options: `@onetrace(['nonce' => $nonce, 'page' => false, 'ignore_bots' => false, 'language' => 'page'])`; Vite's CSP nonce is used automatically. `language` — the visitor's language for translated products and template versions: `page` (the `lang` of `<html>`, e.g. `app()->getLocale()` in your layout), `auto` (the browser, by default), a code or `false`.
 
 Search engine crawlers, link previews, monitoring services and automated browsers (Playwright, Selenium) are not tracked: the tracker sends no events and sets no cookies for them, while recommendation widgets are still shown. To track everyone — for example, to test the integration with an automated browser — set `ONETRACE_IGNORE_BOTS=false` (or `'ignore_bots' => false` in the directive) in that environment. Product events, widgets and Web Push in the browser are described in your account under **Site**.
+
+## Product search
+
+The plan of your project must include product search. A search box with suggestions while typing (products, categories, popular queries):
+
+```blade
+<x-onetrace::search-box action="/search" category-url="/catalog/{id}" placeholder="Search" class="w-full" />
+```
+
+Your results page:
+
+```php
+$result = OneTrace::searchProducts($request->query('q', ''), [
+    'page' => $request->integer('page', 1), 'per_page' => 24, 'sort' => 'relevance', 'category' => $request->query('category'),
+]);
+// $result['items'], $result['total'], $result['facets'] (categories, brands, price)
+```
+
+The visitor of the tracker cookie (the order by their interests) and `app()->getLocale()` (names in the catalog translation) are added automatically; the first page records the `search` event, from which the popular queries of the suggestions come. Suggestions from the backend: `OneTrace::search()->suggest('lin')`.
 
 ## Events from the backend
 
@@ -150,6 +169,8 @@ php artisan onetrace:sync-products "App\Models\Product"
 
 Without models: `OneTrace::syncProducts([['id' => 'SKU-1', 'name' => '…']])` and `OneTrace::deleteProducts(['SKU-1'])`. Products need the secret key.
 
+Other languages of your store go with the product: `'translations' => ['en' => ['name' => 'Sneakers', 'url' => route('products.show', [$this, 'locale' => 'en'])]]` in `toOneTraceProduct()`. Recommendations, widgets, search and emails show the translation in the visitor's or the message's language.
+
 ## The rest of the API
 
 The facade passes everything else to the [`OneTrace\Client`](https://github.com/OneTracePro/onetrace-php):
@@ -204,6 +225,7 @@ Also: `assertTrackedTimes()`, `assertPageViewed()`, `assertProductDeleted()`, `a
 | `identify.on_login`, `identify.on_register` | | `true` | automatic identify |
 | `tracker.identify`, `tracker.reset_on_logout` | | `true` | `@onetrace` behaviour |
 | `tracker.ignore_bots` | `ONETRACE_IGNORE_BOTS` | `true` | skip crawlers and automated browsers in the tracker |
+| `tracker.language` | `ONETRACE_TRACKER_LANGUAGE` | — | the visitor's language in `@onetrace`: `page`, `auto`, a code |
 
 ### Octane and queue workers
 
