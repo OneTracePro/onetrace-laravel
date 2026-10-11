@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.4.0 — 2026-10-11
+
+- `OneTrace::analytics()`: reports, saved reports and dashboards of the platform analytics (onetrace-php 1.5).
+- The `User-Agent` and `about` version is the package version again (it stayed 1.2.0 in 1.3.0).
+
 ## 1.3.0 — 2026-10-09
 
 - Product search: `OneTrace::searchProducts()` for your results page — the visitor of the tracker cookie and the application locale are added, the first page records the `search` event; `OneTrace::search()` for suggestions; the `<x-onetrace::search-box>` Blade component — a search box with suggestions of the tracker.

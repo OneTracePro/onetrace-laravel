@@ -30,6 +30,7 @@ use OneTrace\Laravel\Testing\OneTraceFake;
  * @method static \OneTrace\Resource\Widgets widgets()
  * @method static \OneTrace\Resource\Search search()
  * @method static \OneTrace\Resource\Push push()
+ * @method static \OneTrace\Resource\Analytics analytics()
  * @method static \OneTrace\Resource\Segments segments()
  * @method static \OneTrace\Resource\Journeys journeys()
  * @method static \OneTrace\Resource\Campaigns campaigns()
