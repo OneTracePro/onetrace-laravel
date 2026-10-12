@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.5.0 — 2026-10-12
+
+- `OneTrace::loyalty()`: loyalty points at checkout (calculate, hold, confirm, cancel), balance and history of members, adjustments (onetrace-php 1.6).
+
 ## 1.4.0 — 2026-10-11
 
 - `OneTrace::analytics()`: reports, saved reports and dashboards of the platform analytics (onetrace-php 1.5).

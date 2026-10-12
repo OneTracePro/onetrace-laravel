@@ -184,6 +184,7 @@ OneTrace::segments()->addMembers(12, [Identity::userId($user->id)]);
 OneTrace::journeys()->enroll(7, Identity::userId($user->id), ['order_id' => 'A-1001'], 'order-A-1001');
 OneTrace::recommendations()->get('viewed_with', ['item' => $product->sku, 'limit' => 4]);
 OneTrace::analytics()->funnel(['steps' => [['event' => 'product_viewed'], ['event' => 'order_completed']], 'period' => ['last' => 30]]);
+OneTrace::loyalty()->calculate(Identity::email($user->email), $cart->total());
 OneTrace::client(); // the client itself, also injectable as OneTrace\Client
 ```
 
