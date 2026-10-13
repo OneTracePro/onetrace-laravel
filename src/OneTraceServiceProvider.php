@@ -22,7 +22,7 @@ use OneTrace\Laravel\Listeners\AuthListener;
 
 class OneTraceServiceProvider extends ServiceProvider
 {
-    public const VERSION = '1.5.0';
+    public const VERSION = '1.6.0';
 
     public function register(): void
     {
@@ -65,7 +65,7 @@ class OneTraceServiceProvider extends ServiceProvider
 
         // @phpstan-ignore function.alreadyNarrowedType (absent in Laravel 10)
         if (\is_string($cookie) && $cookie !== '' && method_exists(EncryptCookies::class, 'except')) {
-            EncryptCookies::except($cookie);
+            EncryptCookies::except([$cookie, OneTrace::REFERRAL_COOKIE]);
         }
 
         if ($this->app->runningInConsole()) {

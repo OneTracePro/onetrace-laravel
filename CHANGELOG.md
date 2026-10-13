@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.6.0 — 2026-10-13
+
+- `OneTrace::promo()`: promo code pools — codes for store coupons by cursor, issuing codes to profiles, checks (onetrace-php 1.7).
+- `OneTrace::referralCode()`: the friend's code from the tracker's `cdp_ref` cookie (kept out of `EncryptCookies`) for `OneTrace::loyalty()->refer()` on registration.
+
 ## 1.5.0 — 2026-10-12
 
 - `OneTrace::loyalty()`: loyalty points at checkout (calculate, hold, confirm, cancel), balance and history of members, adjustments (onetrace-php 1.6).

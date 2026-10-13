@@ -185,6 +185,8 @@ OneTrace::journeys()->enroll(7, Identity::userId($user->id), ['order_id' => 'A-1
 OneTrace::recommendations()->get('viewed_with', ['item' => $product->sku, 'limit' => 4]);
 OneTrace::analytics()->funnel(['steps' => [['event' => 'product_viewed'], ['event' => 'order_completed']], 'period' => ['last' => 30]]);
 OneTrace::loyalty()->calculate(Identity::email($user->email), $cart->total());
+OneTrace::loyalty()->refer(Identity::userId($user->id), OneTrace::referralCode()); // on registration: the code of a ?ref= link (cookie cdp_ref)
+OneTrace::promo()->issue('welcome', Identity::userId($user->id));                   // a promo code of a pool
 OneTrace::client(); // the client itself, also injectable as OneTrace\Client
 ```
 
@@ -233,11 +235,11 @@ Also: `assertTrackedTimes()`, `assertPageViewed()`, `assertProductDeleted()`, `a
 
 The package works under Laravel Octane (checked on Swoole) and in long-running queue workers: the collector is scoped to the request or job, events are sent when each request terminates or each job finishes, and `useAnonymousId()` never leaks into the next request.
 
-The tracker's cookie is set by JavaScript and is not encrypted, so the package excludes it from `EncryptCookies` (Laravel 11+). On **Laravel 10** add it yourself — required under Octane, recommended everywhere:
+The tracker's cookies (`cdp_aid`, `cdp_ref`) are set by JavaScript and are not encrypted, so the package excludes them from `EncryptCookies` (Laravel 11+). On **Laravel 10** add them yourself — required under Octane, recommended everywhere:
 
 ```php
 // app/Http/Middleware/EncryptCookies.php
-protected $except = ['cdp_aid'];
+protected $except = ['cdp_aid', 'cdp_ref'];
 ```
 
 ## Development

@@ -45,6 +45,9 @@ class OneTrace
     /** @var (\Closure(?Request): (string|null))|null set once in a service provider */
     protected static ?\Closure $anonymousIdResolver = null;
 
+    /** The tracker's cookie with the friend's referral code. */
+    public const REFERRAL_COOKIE = 'cdp_ref';
+
     public function __construct(protected Application $app)
     {
     }
@@ -353,6 +356,33 @@ class OneTrace
     protected static function validAnonymousId(?string $value): ?string
     {
         return $value !== null && preg_match('/^[A-Za-z0-9._:-]{1,100}$/', $value) === 1 ? $value : null;
+    }
+
+    /**
+     * The friend's referral code from the website tracker's cdp_ref cookie (a ?ref= link, kept for 30 days) — for
+     * OneTrace::loyalty()->refer() on registration; null without the cookie or with an invalid value.
+     */
+    public function referralCode(): ?string
+    {
+        $request = $this->request();
+
+        if ($request === null) {
+            return null;
+        }
+
+        $cookie = $request->cookies->get(self::REFERRAL_COOKIE);
+
+        if (! \is_string($cookie)) {
+            // Laravel 10 without the cookie in EncryptCookies::$except: the raw header still has it.
+            foreach (explode(';', (string) $request->headers->get('cookie')) as $pair) {
+                [$key, $value] = array_pad(explode('=', trim($pair), 2), 2, '');
+                $cookie = $key === self::REFERRAL_COOKIE ? urldecode($value) : $cookie;
+            }
+        }
+
+        $code = \is_string($cookie) ? strtoupper(trim($cookie)) : '';
+
+        return preg_match('/^[A-Z0-9]{4,16}$/', $code) === 1 ? $code : null;
     }
 
     /**

@@ -43,6 +43,10 @@ final class AnonymousIdTest extends TestCase
             return response('ok');
         });
 
+        $router->get('/web/referral', static function () {
+            return (string) OneTrace::referralCode();
+        })->middleware('web');
+
         $router->get('/web/ping', static function () {
             OneTrace::track('ping', [], ['userId' => '1']);
 
@@ -122,6 +126,16 @@ final class AnonymousIdTest extends TestCase
         $this->withUnencryptedCookie('cdp_aid', 'visitor-9')->get('/web/ping')->assertOk();
 
         self::assertSame('visitor-9', $this->sentMessages()[0]['anonymousId']);
+    }
+
+    public function testTheReferralCodeOfTheTrackerCookie(): void
+    {
+        if (!method_exists(\Illuminate\Cookie\Middleware\EncryptCookies::class, 'except')) {
+            self::markTestSkipped('Laravel 10: the application adds the cookie to EncryptCookies::$except itself.');
+        }
+
+        $this->withUnencryptedCookie('cdp_ref', 'k7m2qx9a')->get('/web/referral')->assertOk()->assertSee('K7M2QX9A');
+        $this->withUnencryptedCookie('cdp_ref', '<bad>')->get('/web/referral')->assertOk()->assertContent('');
     }
 
     public function testRejectsInvalidIds(): void

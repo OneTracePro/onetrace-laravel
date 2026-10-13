@@ -32,6 +32,8 @@ use OneTrace\Laravel\Testing\OneTraceFake;
  * @method static \OneTrace\Resource\Push push()
  * @method static \OneTrace\Resource\Analytics analytics()
  * @method static \OneTrace\Resource\Loyalty loyalty()
+ * @method static \OneTrace\Resource\Promo promo()
+ * @method static string|null referralCode()
  * @method static \OneTrace\Resource\Segments segments()
  * @method static \OneTrace\Resource\Journeys journeys()
  * @method static \OneTrace\Resource\Campaigns campaigns()
