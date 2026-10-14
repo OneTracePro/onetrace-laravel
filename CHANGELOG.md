@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.7.0 — 2026-10-14
+
+- `OneTrace::messages()`: transactional messages and cascades of channels to a profile, their status (onetrace-php 1.8).
+
 ## 1.6.0 — 2026-10-13
 
 - `OneTrace::promo()`: promo code pools — codes for store coupons by cursor, issuing codes to profiles, checks (onetrace-php 1.7).

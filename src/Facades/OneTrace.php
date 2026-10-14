@@ -37,6 +37,7 @@ use OneTrace\Laravel\Testing\OneTraceFake;
  * @method static \OneTrace\Resource\Segments segments()
  * @method static \OneTrace\Resource\Journeys journeys()
  * @method static \OneTrace\Resource\Campaigns campaigns()
+ * @method static \OneTrace\Resource\Messages messages()
  *
  * @see \OneTrace\Laravel\OneTrace
  */
