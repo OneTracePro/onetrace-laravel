@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.8.0 — 2026-10-15
+
+- `OneTrace::chats()`: online chat conversations — list and read them, answer customers as the API key, close them (onetrace-php 1.9).
+
 ## 1.7.0 — 2026-10-14
 
 - `OneTrace::messages()`: transactional messages and cascades of channels to a profile, their status (onetrace-php 1.8).

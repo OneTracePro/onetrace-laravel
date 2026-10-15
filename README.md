@@ -188,6 +188,7 @@ OneTrace::loyalty()->calculate(Identity::email($user->email), $cart->total());
 OneTrace::loyalty()->refer(Identity::userId($user->id), OneTrace::referralCode()); // on registration: the code of a ?ref= link (cookie cdp_ref)
 OneTrace::promo()->issue('welcome', Identity::userId($user->id));                   // a promo code of a pool
 OneTrace::messages()->send(Identity::email($user->email), 12, ['data' => ['order_id' => $order->number]], "order-{$order->number}"); // a transactional message
+OneTrace::chats()->reply($conversationId, 'Your order ships today.');            // answer a chat conversation as the API key
 OneTrace::client(); // the client itself, also injectable as OneTrace\Client
 ```
 
