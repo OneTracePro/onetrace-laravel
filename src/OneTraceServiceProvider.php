@@ -10,6 +10,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Mail\MailManager;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Support\ServiceProvider;
@@ -19,10 +20,11 @@ use OneTrace\Exception\ConfigurationException;
 use OneTrace\Http\Transport;
 use OneTrace\Laravel\Console\SyncProductsCommand;
 use OneTrace\Laravel\Listeners\AuthListener;
+use OneTrace\Laravel\Mail\OneTraceTransport;
 
 class OneTraceServiceProvider extends ServiceProvider
 {
-    public const VERSION = '1.8.0';
+    public const VERSION = '1.9.0';
 
     public function register(): void
     {
@@ -73,6 +75,13 @@ class OneTraceServiceProvider extends ServiceProvider
             $this->commands([SyncProductsCommand::class]);
             $this->registerAbout();
         }
+
+        // Mail transport "onetrace" (MAIL_MAILER or a failover mailer, see README): the client is resolved on send.
+        $this->callAfterResolving('mail.manager', function (MailManager $mail): void {
+            $mail->extend('onetrace', function (array $config): OneTraceTransport {
+                return new OneTraceTransport(fn (): Client => $this->app->make(Client::class), (string) ($config['kind'] ?? 'other'));
+            });
+        });
 
         $this->callAfterResolving('blade.compiler', static function (BladeCompiler $blade): void {
             $blade->directive('onetrace', static function (string $expression): string {

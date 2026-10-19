@@ -38,6 +38,7 @@ use OneTrace\Laravel\Testing\OneTraceFake;
  * @method static \OneTrace\Resource\Journeys journeys()
  * @method static \OneTrace\Resource\Campaigns campaigns()
  * @method static \OneTrace\Resource\Messages messages()
+ * @method static \OneTrace\Resource\Emails emails()
  * @method static \OneTrace\Resource\Chats chats()
  *
  * @see \OneTrace\Laravel\OneTrace

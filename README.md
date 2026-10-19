@@ -171,6 +171,40 @@ Without models: `OneTrace::syncProducts([['id' => 'SKU-1', 'name' => '…']])` a
 
 Other languages of your store go with the product: `'translations' => ['en' => ['name' => 'Sneakers', 'url' => route('products.show', [$this, 'locale' => 'en'])]]` in `toOneTraceProduct()`. Recommendations, widgets, search and emails show the translation in the visitor's or the message's language.
 
+## Emails through OneTrace
+
+The mail transport `onetrace` sends the application's emails through the project's email integration of OneTrace.pro as is — with delivery statuses and history in the customer profile. Put it in a failover mailer: when OneTrace does not accept an email (no email integration, the message quota is used up) or is unavailable, the next mailer sends it. The secret key needs the `messages.send` permission.
+
+```php
+// config/mail.php
+'default' => env('MAIL_MAILER', 'failover'),
+'mailers' => [
+    'onetrace' => ['transport' => 'onetrace', 'kind' => 'other'],
+    'failover' => ['transport' => 'failover', 'mailers' => ['onetrace', 'smtp']],
+    // smtp, log …
+],
+```
+
+Mark the kind of an email for reports and the profile history:
+
+```php
+use OneTrace\Laravel\Mail\SendsThroughOneTrace;
+
+class ResetPassword extends Mailable
+{
+    use SendsThroughOneTrace;
+
+    public function build(): static
+    {
+        return $this->subject('Reset your password')->view('mail.reset')->oneTraceKind('password_reset');
+    }
+}
+```
+
+- Every recipient (To, Cc, Bcc) gets their own copy; attachments are PDF, images, text, CSV or calendar files, up to 5 MB in total.
+- Access-link kinds (`password_reset`, `account_new`, `email_verification`, `login_link`, `login_code`) go without click tracking and keep only the subject after sending.
+- Order emails can be built from OneTrace templates instead: send `OneTrace::emails()->send()` with `order` data (see the library's README, "Store emails").
+
 ## The rest of the API
 
 The facade passes everything else to the [`OneTrace\Client`](https://github.com/OneTracePro/onetrace-php):
@@ -189,6 +223,7 @@ OneTrace::loyalty()->refer(Identity::userId($user->id), OneTrace::referralCode()
 OneTrace::promo()->issue('welcome', Identity::userId($user->id));                   // a promo code of a pool
 OneTrace::messages()->send(Identity::email($user->email), 12, ['data' => ['order_id' => $order->number]], "order-{$order->number}"); // a transactional message
 OneTrace::chats()->reply($conversationId, 'Your order ships today.');            // answer a chat conversation as the API key
+OneTrace::emails()->send(['to' => $user->email, 'kind' => 'order_shipped', 'order' => $order->emailData([...])]); // an order email from the OneTrace template
 OneTrace::client(); // the client itself, also injectable as OneTrace\Client
 ```
 

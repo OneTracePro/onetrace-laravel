@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.9.0 — 2026-10-20
+
+- Mail transport `onetrace`: the application's emails go out through the project's email integration of OneTrace.pro as is, each recipient gets their own copy, attachments included; a failure throws `TransportException`, so a failover mailer sends the email natively.
+- `SendsThroughOneTrace::oneTraceKind()` for mailables — the kind of the email (`order_placed`, `password_reset` …).
+- `OneTrace::emails()`: store emails and order emails from OneTrace templates (onetrace-php 1.12).
+
 ## 1.8.0 — 2026-10-15
 
 - `OneTrace::chats()`: online chat conversations — list and read them, answer customers as the API key, close them (onetrace-php 1.9).
