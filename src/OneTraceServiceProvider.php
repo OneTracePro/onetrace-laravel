@@ -21,10 +21,13 @@ use OneTrace\Http\Transport;
 use OneTrace\Laravel\Console\SyncProductsCommand;
 use OneTrace\Laravel\Listeners\AuthListener;
 use OneTrace\Laravel\Mail\OneTraceTransport;
+use OneTrace\Laravel\Console\StoreMcpCommand;
+use OneTrace\Laravel\Http\StoreMcpController;
+use OneTrace\Laravel\StoreMcp\StoreMcp;
 
 class OneTraceServiceProvider extends ServiceProvider
 {
-    public const VERSION = '1.9.0';
+    public const VERSION = '1.10.0';
 
     public function register(): void
     {
@@ -72,8 +75,14 @@ class OneTraceServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->publishes([__DIR__ . '/../config/onetrace.php' => $this->app->configPath('onetrace.php')], 'onetrace-config');
-            $this->commands([SyncProductsCommand::class]);
+            $this->commands([SyncProductsCommand::class, StoreMcpCommand::class]);
             $this->registerAbout();
+        }
+
+        // MCP server of the store for the AI chat bot: outside the web middleware — no session and no CSRF.
+        if ($this->app->make(StoreMcp::class)->enabled()) {
+            $path = $this->app->make('config')->get('onetrace.store_mcp.path');
+            $this->app->make('router')->post(\is_string($path) ? $path : 'onetrace/mcp', StoreMcpController::class)->name('onetrace.store-mcp');
         }
 
         // Mail transport "onetrace" (MAIL_MAILER or a failover mailer, see README): the client is resolved on send.

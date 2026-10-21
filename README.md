@@ -205,6 +205,54 @@ class ResetPassword extends Mailable
 - Access-link kinds (`password_reset`, `account_new`, `email_verification`, `login_link`, `login_code`) go without click tracking and keep only the subject after sending.
 - Order emails can be built from OneTrace templates instead: send `OneTrace::emails()->send()` with `order` data (see the library's README, "Store emails").
 
+## Store MCP server for the AI chat bot
+
+The AI chat bot of OneTrace can answer your customers with live data of your store — order status, tracking, stock, delivery, returns — and, if you allow it, cancel orders, create returns and change delivery. It calls an MCP server of your application by the [store MCP contract](https://cdp.onetrace.pro/docs/en/store-mcp). Implement the tools you offer:
+
+```php
+namespace App\OneTrace;
+
+use App\Models\Order;
+use App\Models\User;
+use OneTrace\Laravel\StoreMcp\StoreMcpHandlers;
+use OneTrace\StoreMcp\{Context, ToolError};
+
+final class StoreTools extends StoreMcpHandlers
+{
+    public function getCustomer(Context $ctx): array
+    {
+        $user = User::findOrFail($ctx->customerId);
+
+        return ['id' => (string) $user->id, 'email' => $user->email, 'first_name' => $user->first_name];
+    }
+
+    public function getOrder(array $args, Context $ctx): array
+    {
+        $order = Order::where('user_id', $ctx->customerId)->where('number', $args['order'])->first()
+            ?? throw new ToolError(ToolError::NOT_FOUND, __('No such order.'));
+
+        return ['order' => $order->number, 'status' => $order->status, 'total' => ['amount' => $order->total, 'currency' => 'EUR']];
+    }
+
+    // Confirmation by a code sent by email (override sendCode() for SMS).
+    public function findCustomer(string $contact, ?string $order): ?string
+    {
+        return User::where('email', $contact)->value('id');
+    }
+}
+```
+
+```dotenv
+ONETRACE_STORE_MCP=true
+ONETRACE_STORE_MCP_KEY=   # php artisan onetrace:store-mcp --key
+```
+
+Set `'store_mcp.handlers' => App\OneTrace\StoreTools::class` in `config/onetrace.php` and run `php artisan onetrace:store-mcp` once (secret key with `chats.manage`): the platform checks the server at `POST /onetrace/mcp` and the bot starts using it.
+
+- Method names follow the tools: `getCustomer`, `findOrders`, `getOrder`, `getTracking`, `checkAvailability`, `getDeliveryOptions`, `getReturnPolicy`, `cancelOrder`, `createReturn`, `changeDelivery`; a tool without a method is not offered. `$ctx->customerId` is the confirmed customer, `$ctx->language` — the conversation language.
+- Read tools are offered by default; list actions in `store_mcp.tools` to allow them. Actions run only after the customer agreed in the chat, with `$ctx->idempotencyKey`.
+- `@onetrace` confirms a signed-in user for the bot: it passes a signed customer token to the tracker (`cdp.chatCustomer()`). Guests and messenger customers confirm with a code (`findCustomer()` + `sendCode()`).
+
 ## The rest of the API
 
 The facade passes everything else to the [`OneTrace\Client`](https://github.com/OneTracePro/onetrace-php):

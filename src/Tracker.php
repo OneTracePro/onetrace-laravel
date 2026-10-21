@@ -8,6 +8,8 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Cookie\CookieJar;
 use Illuminate\Http\Request;
 use Illuminate\Support\HtmlString;
+use OneTrace\Laravel\StoreMcp\StoreMcp;
+use Illuminate\Contracts\Auth\Authenticatable;
 
 /**
  * The website tracker snippet for the @onetrace Blade directive: loads cdp.js with the write key, links the browser
@@ -39,7 +41,7 @@ class Tracker
 
         $host = (string) preg_replace('#/api/v1/?$#', '', rtrim((string) $config->get('onetrace.url'), '/'));
         $lines = [
-            "!function(w,d,u){var c=w.cdp=w.cdp||[];if(c.version)return;['init','page','track','identify','alias','reset','setLanguage','widgets','renderRecommendations'].forEach(function(m){c[m]=c[m]||function(){c.push([m].concat([].slice.call(arguments)))}});var s=d.createElement('script');s.async=1;s.src=u;d.head.appendChild(s)}(window,document," . self::js($host . '/tracker/cdp.js') . ');',
+            "!function(w,d,u){var c=w.cdp=w.cdp||[];if(c.version)return;['init','page','track','identify','alias','reset','setLanguage','widgets','renderRecommendations','chatCustomer'].forEach(function(m){c[m]=c[m]||function(){c.push([m].concat([].slice.call(arguments)))}});var s=d.createElement('script');s.async=1;s.src=u;d.head.appendChild(s)}(window,document," . self::js($host . '/tracker/cdp.js') . ');',
             'cdp.init(' . self::js($key) . ', { host: ' . self::js($host)
                 . (($options['ignore_bots'] ?? $config->get('onetrace.tracker.ignore_bots', true)) ? '' : ', ignoreBots: false')
                 . self::language(\array_key_exists('language', $options) ? $options['language'] : $config->get('onetrace.tracker.language')) . ' });',
@@ -58,6 +60,13 @@ class Tracker
             // identify once per browser and user: the tracker remembers the user id in localStorage.
             $id = self::js($userId);
             $lines[] = "try{if(localStorage.getItem('cdp_uid')!=={$id})cdp.identify({$id})}catch(e){cdp.identify({$id})}";
+        }
+
+        // Store MCP (AI chat bot): the signed-in customer is confirmed for the bot without a code.
+        $mcp = $this->app->make(StoreMcp::class);
+
+        if ($mcp->enabled() && ($token = $mcp->customerToken($this->user())) !== null) {
+            $lines[] = 'cdp.chatCustomer(' . self::js($token) . ');';
         }
 
         if ($options['page'] ?? true) {
@@ -81,6 +90,17 @@ class Tracker
         }
 
         return \is_string($language) && $language !== '' ? ', language: ' . self::js($language) : '';
+    }
+
+    protected function user(): ?Authenticatable
+    {
+        if (!$this->app->bound('auth')) {
+            return null;
+        }
+
+        $user = $this->app->make('auth')->user();
+
+        return $user instanceof Authenticatable ? $user : null;
     }
 
     protected function userId(): ?string

@@ -82,4 +82,26 @@ return [
         'language' => env('ONETRACE_TRACKER_LANGUAGE'),
     ],
 
+    /*
+    | MCP server of the store for the OneTrace AI chat bot (store MCP contract v1): the bot answers customers with
+    | live data of the store (orders, tracking, stock, delivery, returns) and, if allowed, cancels orders, creates
+    | returns and changes delivery. Implement the tools in a class extending OneTrace\Laravel\StoreMcp\StoreMcpHandlers,
+    | enable the server and run `php artisan onetrace:store-mcp` to connect it (secret key with chats.manage).
+    */
+    'store_mcp' => [
+        'enabled' => (bool) env('ONETRACE_STORE_MCP', false),
+        'path' => env('ONETRACE_STORE_MCP_PATH', 'onetrace/mcp'),
+        // The key the platform sends to the server: 32+ random characters (php artisan onetrace:store-mcp --key).
+        'key' => env('ONETRACE_STORE_MCP_KEY'),
+        // Signs customer tokens (signed-in customers, confirmation codes); empty — derived from APP_KEY.
+        'token_secret' => env('ONETRACE_CUSTOMER_TOKEN_SECRET'),
+        'token_ttl' => 86400,
+        'handlers' => null, // e.g. App\OneTrace\StoreTools::class
+        // Tools the bot may use; null — every implemented read tool, actions only when listed here.
+        'tools' => null,
+        // Cache store of confirmation codes; null — the default store.
+        'cache' => null,
+        'name' => env('APP_NAME', 'laravel-store'),
+    ],
+
 ];

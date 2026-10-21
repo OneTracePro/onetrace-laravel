@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.10.0 — 2026-10-21
+
+- Store MCP server for the OneTrace AI chat bot: extend `StoreMcpHandlers` with the tools you offer, `ONETRACE_STORE_MCP=true` and a key — `POST /onetrace/mcp` answers the store MCP contract (no session, no CSRF); read tools by default, actions when listed in `store_mcp.tools`; confirmation codes by email through the cache (`findCustomer()`, `sendCode()`).
+- `php artisan onetrace:store-mcp` connects the server to the bot (`--key` prints a new key, `--disconnect`).
+- `@onetrace` passes the signed-in customer to the chat bot (`cdp.chatCustomer()`, tracker 1.16).
+- Requires onetrace-php 1.13.
+
 ## 1.9.0 — 2026-10-20
 
 - Mail transport `onetrace`: the application's emails go out through the project's email integration of OneTrace.pro as is, each recipient gets their own copy, attachments included; a failure throws `TransportException`, so a failover mailer sends the email natively.
