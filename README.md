@@ -262,6 +262,8 @@ use OneTrace\Identity;
 
 OneTrace::profiles()->get('email', 'anna@example.com');
 OneTrace::profiles()->updateConsent('user_id', '42', 'email', 'unsubscribed');
+OneTrace::profiles()->preferences('user_id', $user->id, app()->getLocale());      // topics by channel, frequency, pause, preferences_url
+OneTrace::profiles()->updatePreferences('user_id', $user->id, ['frequency' => 'weekly', 'topics' => ['news' => ['email' => false]]]);
 OneTrace::segments()->addMembers(12, [Identity::userId($user->id)]);
 OneTrace::journeys()->enroll(7, Identity::userId($user->id), ['order_id' => 'A-1001'], 'order-A-1001');
 OneTrace::recommendations()->get('viewed_with', ['item' => $product->sku, 'limit' => 4]);
@@ -274,6 +276,8 @@ OneTrace::chats()->reply($conversationId, 'Your order ships today.');           
 OneTrace::emails()->send(['to' => $user->email, 'kind' => 'order_shipped', 'order' => $order->emailData([...])]); // an order email from the OneTrace template
 OneTrace::client(); // the client itself, also injectable as OneTrace\Client
 ```
+
+A «Subscriptions» page in your customer account can show `preferences()` as a form and save it with `updatePreferences()`, or link to the hosted preference center: `preferences_url` is signed and valid for 30 days.
 
 See the [library's README](https://github.com/OneTracePro/onetrace-php#readme) for errors, retries and pagination, and the [API reference](https://onetrace.pro/en/docs/api).
 

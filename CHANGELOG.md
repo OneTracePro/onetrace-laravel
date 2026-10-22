@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.11.0 — 2026-10-22
+
+- onetrace-php 1.14: subscription preferences through the facade — `OneTrace::profiles()->preferences()`, `updatePreferences()`, `subscriptionTopics()` for a «Subscriptions» page in the customer account or a link to the hosted preference center.
+
 ## 1.10.0 — 2026-10-21
 
 - Store MCP server for the OneTrace AI chat bot: extend `StoreMcpHandlers` with the tools you offer, `ONETRACE_STORE_MCP=true` and a key — `POST /onetrace/mcp` answers the store MCP contract (no session, no CSRF); read tools by default, actions when listed in `store_mcp.tools`; confirmation codes by email through the cache (`findCustomer()`, `sendCode()`).
