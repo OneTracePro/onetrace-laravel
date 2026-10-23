@@ -43,6 +43,27 @@ final class SearchTest extends TestCase
         self::assertStringContainsString('placeholder="Search"', $html);
     }
 
+    public function testGivesAnEmptyUnavailableResultOverTheMonthlySearchLimit(): void
+    {
+        $this->transport->respond(402, ['message' => 'The monthly search limit is spent', 'code' => 'quota_exceeded']);
+
+        $result = OneTrace::searchProducts('shoes');
+
+        self::assertTrue($result['unavailable']);
+        self::assertSame([], $result['items']);
+        self::assertCount(1, $this->transport->requests);
+    }
+
+    public function testRendersTheResultsContainerOfTheSearchWidget(): void
+    {
+        $html = Blade::render('<x-onetrace::search-results cart-url="/cart/add/{id}" per-page="12" class="mt-4" />');
+
+        self::assertStringContainsString('<div data-cdp-search-results data-query-param="q"', $html);
+        self::assertStringContainsString('data-cart-url="/cart/add/{id}"', $html);
+        self::assertStringContainsString('data-per-page="12"', $html);
+        self::assertStringContainsString('class="mt-4"', $html);
+    }
+
     public function testPassesTheLanguageOfTheVisitorToTheTracker(): void
     {
         self::assertStringContainsString('cdp.init("cdp_wk_test", { host: "https://cdp.example.com", language: "page" });', Blade::render("@onetrace(['language' => 'page'])"));

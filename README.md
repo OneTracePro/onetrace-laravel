@@ -59,7 +59,15 @@ Your results page:
 $result = OneTrace::searchProducts($request->query('q', ''), [
     'page' => $request->integer('page', 1), 'per_page' => 24, 'sort' => 'relevance', 'category' => $request->query('category'),
 ]);
-// $result['items'], $result['total'], $result['facets'] (categories, brands, price)
+// $result['items'], $result['total'], $result['facets'] (categories, brands, price, attributes)
+// $result['corrected'] / $result['suggestion'] — typo fixed or "did you mean"; $result['filters'] — price, brand and
+// characteristics recognized in the text; $result['unavailable'] — over the monthly search limit: show your own search
+```
+
+Or let the tracker draw the whole results page — turn on the search widget in **Site → Search** and put the container on your page; the "Add to cart" button posts the quantity to your address and expects `{"ok": true}` (or `{"redirect": "…"}` for a product that needs options):
+
+```blade
+<x-onetrace::search-results cart-url="/cart/add/{id}" />
 ```
 
 The visitor of the tracker cookie (the order by their interests) and `app()->getLocale()` (names in the catalog translation) are added automatically; the first page records the `search` event, from which the popular queries of the suggestions come. Suggestions from the backend: `OneTrace::search()->suggest('lin')`.

@@ -9,6 +9,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use OneTrace\Client;
+use OneTrace\Exception\PaymentRequiredException;
 use OneTrace\Laravel\Contracts\HasOneTraceTraits;
 use OneTrace\Laravel\Contracts\OneTraceProduct;
 use OneTrace\Laravel\Jobs\SendEvents;
@@ -159,19 +160,31 @@ class OneTrace
      * application locale (names in the catalog translation) are added unless given; the first page records the
      * search event, from which the popular queries of the search box suggestions come.
      *
-     * @param array<string, mixed> $params category, brand, price_min, price_max, sort, page, per_page, all, image_width,
-     *                                     anonymousId, language — see GET /api/v1/search
+     * Over the monthly search limit of the plan (or without product search in it) the result is empty with
+     * "unavailable" => true: show your own search then.
      *
-     * @return array<string, mixed> items, total, page, per_page, relaxed, personalized, facets
+     * @param array<string, mixed> $params category, brand, price_min, price_max, attr, sort, page, per_page, all, image_width,
+     *                                     anonymousId, language, correct, ignore — see GET /api/v1/search
+     *
+     * @return array<string, mixed> items, total, page, per_page, relaxed, personalized, facets, corrected, suggestion,
+     *                              filters, learned, semantic, redirect; unavailable — search is not available
      */
     public function searchProducts(string $query, array $params = []): array
     {
+        $empty = ['items' => [], 'total' => 0, 'facets' => ['categories' => [], 'brands' => [], 'price' => ['min' => null, 'max' => null]]];
+
         if (!$this->enabled()) {
-            return ['items' => [], 'total' => 0, 'facets' => ['categories' => [], 'brands' => [], 'price' => ['min' => null, 'max' => null]]];
+            return $empty;
         }
 
         $params += array_filter(['anonymousId' => $this->anonymousId(), 'language' => $this->app->getLocale()]);
-        $result = $this->client()->search()->products($query, $params);
+
+        try {
+            $result = $this->client()->search()->products($query, $params);
+        } catch (PaymentRequiredException $e) {
+            return $empty + ['unavailable' => true];
+        }
+
         $query = trim($query);
 
         if ($query !== '' && (int) ($params['page'] ?? 1) === 1) {

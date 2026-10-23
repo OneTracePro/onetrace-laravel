@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.12.0 — 2026-10-23
+
+- `<x-onetrace::search-results cart-url="/cart/add/{id}" />` — results page drawn by the search widget of the tracker (facets, sorting, infinite scroll, an "Add to cart" button posting to your address).
+- `OneTrace::searchProducts()` returns an empty result with `unavailable: true` over the monthly search limit of the plan (402) instead of throwing; the response fields `corrected`, `suggestion`, `filters`, `learned`, `semantic` and the parameters `correct`, `ignore`, `attr` are documented.
+- Requires onetrace-php 1.15.
+
 ## 1.11.0 — 2026-10-22
 
 - onetrace-php 1.14: subscription preferences through the facade — `OneTrace::profiles()->preferences()`, `updatePreferences()`, `subscriptionTopics()` for a «Subscriptions» page in the customer account or a link to the hosted preference center.

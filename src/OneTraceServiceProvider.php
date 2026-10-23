@@ -27,7 +27,7 @@ use OneTrace\Laravel\StoreMcp\StoreMcp;
 
 class OneTraceServiceProvider extends ServiceProvider
 {
-    public const VERSION = '1.11.0';
+    public const VERSION = '1.12.0';
 
     public function register(): void
     {
@@ -96,7 +96,8 @@ class OneTraceServiceProvider extends ServiceProvider
             $blade->directive('onetrace', static function (string $expression): string {
                 return '<?php echo app(\\OneTrace\\Laravel\\Tracker::class)->render(' . ($expression !== '' ? $expression : '[]') . '); ?>';
             });
-            // <x-onetrace::search-box action="/search" />: a search box with suggestions of the tracker.
+            // <x-onetrace::search-box action="/search" />: a search box with suggestions of the tracker;
+            // <x-onetrace::search-results cart-url="/cart/add/{id}" />: results drawn by the tracker's search widget.
             $blade->anonymousComponentPath(__DIR__ . '/../resources/views/components', 'onetrace');
         });
 
