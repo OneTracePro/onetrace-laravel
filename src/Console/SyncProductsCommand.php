@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use OneTrace\Client;
 use OneTrace\Laravel\Contracts\OneTraceProduct;
+use OneTrace\Laravel\OneTrace;
 
 /**
  * Uploads the whole catalog: php artisan onetrace:sync-products "App\Models\Product".
@@ -42,7 +43,7 @@ class SyncProductsCommand extends Command
                 continue;
             }
 
-            $chunk[] = $model->toOneTraceProduct();
+            $chunk[] = OneTrace::productData($model->toOneTraceProduct());
 
             if (\count($chunk) >= $size) {
                 $total += $this->send($client, $chunk);

@@ -159,6 +159,7 @@ class Product extends Model implements OneTraceProduct
             'image' => $this->image_url,
             'category_ids' => [$this->category_slug],
             'available' => $this->stock > 0,
+            'description' => $this->description, // HTML or text: the AI answers shoppers' questions from it
         ];
     }
 
@@ -177,7 +178,19 @@ php artisan onetrace:sync-products "App\Models\Product"
 
 Without models: `OneTrace::syncProducts([['id' => 'SKU-1', 'name' => '…']])` and `OneTrace::deleteProducts(['SKU-1'])`. Products need the secret key.
 
-Other languages of your store go with the product: `'translations' => ['en' => ['name' => 'Sneakers', 'url' => route('products.show', [$this, 'locale' => 'en'])]]` in `toOneTraceProduct()`. Recommendations, widgets, search and emails show the translation in the visitor's or the message's language.
+Other languages of your store go with the product: `'translations' => ['en' => ['name' => 'Sneakers', 'url' => route('products.show', [$this, 'locale' => 'en']), 'description' => $this->description_en]]` in `toOneTraceProduct()`. Recommendations, widgets, search and emails show the translation in the visitor's or the message's language.
+
+The description (and its translations) is sent as text: HTML tags and entities are removed, paragraphs and list items become lines, at most 5000 characters; an empty one is left out.
+
+### Ask AI about the product
+
+Shoppers ask questions on the product page and the AI answers from the product description and characteristics of the catalog and the knowledge base of your store, in the language of the question. Turn the widget on in **Site → Product questions** and put the element on the product page:
+
+```blade
+<x-onetrace::ask :product="$product->sku" />
+```
+
+`product` is the id of the catalog (`product_id` of events). The tracker of `@onetrace` draws suggested questions and the answer, or a chat button with the product, as set up in OneTrace; while the widget is off (or AI is not paid for) the element stays empty.
 
 ## Emails through OneTrace
 

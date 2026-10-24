@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.13.0 — 2026-10-24
+
+- Product descriptions in the catalog: `description` and `translations.{lang}.description` of `toOneTraceProduct()` and `syncProducts()` (HTML or text) go to the platform as text of at most 5000 characters — the AI answers shoppers' questions about the product from them; `onetrace:sync-products` sends them too.
+- `<x-onetrace::ask :product="$product->sku" />` — «Ask AI about the product» on the product page: suggested questions and the AI answer, or a chat button with the product, drawn by the tracker when the widget of Site → Product questions is on.
+- Requires onetrace-php 1.16.
+
 ## 1.12.0 — 2026-10-23
 
 - `<x-onetrace::search-results cart-url="/cart/add/{id}" />` — results page drawn by the search widget of the tracker (facets, sorting, infinite scroll, an "Add to cart" button posting to your address).

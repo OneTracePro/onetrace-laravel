@@ -12,7 +12,8 @@ interface OneTraceProduct
 {
     /**
      * The product as the API expects it: id and name are required; url, image, price, old_price, currency,
-     * available, category_ids, brand, params are optional.
+     * available, stock, category_ids, brand, params, description (HTML or text — the AI answers shoppers' questions
+     * from it), translations ({lang: {name, url, params, description}}) are optional.
      *
      * @return array<string, mixed>
      */

@@ -18,7 +18,7 @@ class Product extends Model implements OneTraceProduct
 
     public function toOneTraceProduct(): array
     {
-        return ['id' => $this->sku, 'name' => $this->name, 'price' => (float) $this->price];
+        return ['id' => $this->sku, 'name' => $this->name, 'price' => (float) $this->price, 'description' => $this->description];
     }
 
     public function shouldSyncWithOneTrace(): bool

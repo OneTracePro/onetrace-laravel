@@ -9,6 +9,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use OneTrace\Client;
+use OneTrace\Commerce\CatalogItem;
 use OneTrace\Exception\PaymentRequiredException;
 use OneTrace\Laravel\Contracts\HasOneTraceTraits;
 use OneTrace\Laravel\Contracts\OneTraceProduct;
@@ -147,12 +148,64 @@ class OneTrace
                 throw new \InvalidArgumentException('A product needs an "id".');
             }
 
+            $data = self::productData($data);
             $data['id'] = (string) $id;
             unset($this->deletes[$data['id']]);
             $this->upserts[$data['id']] = $data;
         }
 
         $this->sendNowIfSync();
+    }
+
+    /**
+     * The product as it goes to the platform: the description and its translations (HTML or text) become text of at
+     * most 5000 characters — the AI answers shoppers' questions from it; an empty description is left out.
+     *
+     * @internal
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    public static function productData(array $data): array
+    {
+        $data = self::withTextDescription($data);
+
+        if (isset($data['translations']) && \is_array($data['translations'])) {
+            foreach ($data['translations'] as $language => $translation) {
+                if (\is_array($translation)) {
+                    $data['translations'][$language] = self::withTextDescription($translation);
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array<mixed> $data
+     *
+     * @return array<mixed>
+     */
+    private static function withTextDescription(array $data): array
+    {
+        if (!\array_key_exists('description', $data)) {
+            return $data;
+        }
+
+        $description = $data['description'];
+
+        if ($description === null || \is_string($description) || $description instanceof \Stringable) {
+            $description = CatalogItem::description($description === null ? null : (string) $description);
+
+            if ($description === null) {
+                unset($data['description']);
+            } else {
+                $data['description'] = $description;
+            }
+        }
+
+        return $data;
     }
 
     /**

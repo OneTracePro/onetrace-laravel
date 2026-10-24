@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OneTrace\Laravel\Tests;
 
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
 use OneTrace\Laravel\Facades\OneTrace;
 use OneTrace\Laravel\Tests\Fixtures\Product;
@@ -17,6 +18,7 @@ final class ProductsTest extends TestCase
             $table->string('sku');
             $table->string('name');
             $table->decimal('price', 10, 2);
+            $table->text('description')->nullable();
             $table->boolean('hidden_from_catalog')->default(false);
             $table->timestamps();
             $table->softDeletes();
@@ -44,6 +46,37 @@ final class ProductsTest extends TestCase
         OneTrace::syncProducts([['id' => 'SKU-1', 'name' => 'Кроссовки', 'translations' => ['en' => ['name' => 'Sneakers', 'url' => 'https://shop.example/en/sku-1']]]]);
 
         $fake->assertProductSynced(static fn (array $data): bool => ($data['translations']['en']['name'] ?? null) === 'Sneakers');
+    }
+
+    public function testSendsTheDescriptionAsTextForTheAiAnswers(): void
+    {
+        $fake = OneTrace::fake();
+
+        Product::create(['sku' => 'SKU-1', 'name' => 'Sneakers', 'price' => 4990, 'description' => '<p>Leather&nbsp;upper.</p><ul><li>Size 42</li></ul>']);
+        OneTrace::syncProducts([['id' => 'SKU-2', 'name' => 'Boots', 'description' => '  ', 'translations' => ['en' => ['name' => 'Boots', 'description' => '<b>' . str_repeat('a', 6000) . '</b>']]]]);
+
+        $fake->assertProductSynced(static fn (array $data): bool => $data['id'] === 'SKU-1' && $data['description'] === "Leather upper.\n• Size 42");
+        $fake->assertProductSynced(static fn (array $data): bool => $data['id'] === 'SKU-2' && !\array_key_exists('description', $data)
+            && $data['translations']['en']['description'] === str_repeat('a', 5000));
+    }
+
+    public function testTheCommandSendsDescriptionsAsText(): void
+    {
+        $fake = OneTrace::fake();
+        Product::create(['sku' => 'SKU-1', 'name' => 'Sneakers', 'price' => 1, 'description' => '<p>Leather upper.</p>']);
+
+        $this->artisan('onetrace:sync-products', ['model' => Product::class])->assertSuccessful();
+
+        $items = json_decode((string) $this->transport->requests[0]->getBody(), true)['items'];
+        self::assertSame('Leather upper.', $items[0]['description']);
+        unset($fake);
+    }
+
+    public function testRendersTheAskAiElementOfTheProductPage(): void
+    {
+        $html = Blade::render('<x-onetrace::ask :product="$id" class="mt-6" />', ['id' => 'SKU-1"><script>']);
+
+        self::assertStringContainsString('<div data-cdp-ask data-product-id="SKU-1&quot;&gt;&lt;script&gt;" class="mt-6"></div>', $html);
     }
 
     public function testHiddenModelsAreNotSynced(): void
