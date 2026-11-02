@@ -27,7 +27,7 @@ use OneTrace\Laravel\StoreMcp\StoreMcp;
 
 class OneTraceServiceProvider extends ServiceProvider
 {
-    public const VERSION = '1.13.0';
+    public const VERSION = '1.14.0';
 
     public function register(): void
     {
@@ -38,6 +38,7 @@ class OneTraceServiceProvider extends ServiceProvider
             $options = [
                 'write_key' => $config->get('onetrace.write_key') ?: null,
                 'secret_key' => $config->get('onetrace.secret_key') ?: null,
+                'identity_key' => $config->get('onetrace.identity_key') ?: null,
                 'timeout' => (float) $config->get('onetrace.timeout', 10),
                 'max_retries' => (int) $config->get('onetrace.max_retries', 3),
                 'language' => (string) $config->get('onetrace.language', 'en'),

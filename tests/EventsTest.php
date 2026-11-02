@@ -57,7 +57,8 @@ final class EventsTest extends TestCase
         self::assertSame(['order_id' => 'A-1001', 'amount' => 9980], $track['properties']);
         self::assertSame('Checkout', $page['name']);
         self::assertSame('http://localhost/checkout', $page['properties']['url']);
-        self::assertSame('Bearer cdp_wk_test', $this->transport->requests[0]->getHeader('Authorization'));
+        // Events of the server go with the secret key: the write key does not award points and needs signed user ids.
+        self::assertSame('Bearer cdp_sk_test', $this->transport->requests[0]->getHeader('Authorization'));
     }
 
     public function testIdentifySendsTheUserTraits(): void

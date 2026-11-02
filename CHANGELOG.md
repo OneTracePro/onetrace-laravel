@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.14.0 — 2026-11-02
+
+- Signed user ids: `ONETRACE_IDENTITY_KEY` (`onetrace.identity_key`, the identity key of the project under Website → Connection → Server) — `@onetrace` prints `cdp.identify(id, {}, { userHash })` for the signed-in user and identifies again when the signature in the browser differs; `OneTrace::userHash($id)` gives the signature for your own pages and apps. A project that requires the signature drops a user id from the browser without it.
+- Events of the server go with the secret key when it is set (before, the write key was preferred): purchases sent with the write key do not award loyalty points, and their user id is dropped when the project requires signed user ids.
+- Requires onetrace-php 1.17.
+
 ## 1.13.0 — 2026-10-24
 
 - Product descriptions in the catalog: `description` and `translations.{lang}.description` of `toOneTraceProduct()` and `syncProducts()` (HTML or text) go to the platform as text of at most 5000 characters — the AI answers shoppers' questions about the product from them; `onetrace:sync-products` sends them too.

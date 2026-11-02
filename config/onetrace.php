@@ -8,13 +8,21 @@ return [
     'url' => env('ONETRACE_URL', 'https://cdp.onetrace.pro'),
 
     /*
-    | Keys from the project's "API keys" section. The write key (cdp_wk_…) sends events and is also used by the
-    | tracker on your pages; the secret key (cdp_sk_…) is needed for products, profiles, segments, journeys and
-    | campaigns. Without any key the package sends nothing.
+    | Keys from the project's "API keys" section. The write key (cdp_wk_…) is used by the tracker on your pages, by
+    | recommendations and search; the secret key (cdp_sk_…) sends events of the server (with the write key purchases
+    | do not award loyalty points) and is needed for products, profiles, segments, journeys and campaigns. Without
+    | any key the package sends nothing.
     */
     'write_key' => env('ONETRACE_WRITE_KEY'),
 
     'secret_key' => env('ONETRACE_SECRET_KEY'),
+
+    /*
+    | Identity key of the project (cdp_ik_…, Website → Connection → Server): @onetrace signs the id of the signed-in
+    | user — cdp.identify(id, {}, { userHash }) — so the platform trusts it when the project requires signed user ids.
+    | Never expose it to browsers.
+    */
+    'identity_key' => env('ONETRACE_IDENTITY_KEY'),
 
     /*
     | Turn sending off (local development, CI) without removing calls from the code.

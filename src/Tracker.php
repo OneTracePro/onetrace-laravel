@@ -8,12 +8,14 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Cookie\CookieJar;
 use Illuminate\Http\Request;
 use Illuminate\Support\HtmlString;
+use OneTrace\Client;
 use OneTrace\Laravel\StoreMcp\StoreMcp;
 use Illuminate\Contracts\Auth\Authenticatable;
 
 /**
  * The website tracker snippet for the @onetrace Blade directive: loads cdp.js with the write key, links the browser
- * to the signed-in user (by id only, no personal data in the page) and resets the visitor after logout.
+ * to the signed-in user (by id only, no personal data in the page; signed with the identity key when it is set) and
+ * resets the visitor after logout.
  */
 class Tracker
 {
@@ -57,9 +59,17 @@ class Tracker
         $userId = $config->get('onetrace.tracker.identify', true) ? $this->userId() : null;
 
         if ($userId !== null) {
-            // identify once per browser and user: the tracker remembers the user id in localStorage.
+            // identify once per browser and user: the tracker remembers the user id (and its signature) in localStorage.
             $id = self::js($userId);
-            $lines[] = "try{if(localStorage.getItem('cdp_uid')!=={$id})cdp.identify({$id})}catch(e){cdp.identify({$id})}";
+            $hash = $this->userHash($userId);
+
+            if ($hash === null) {
+                $lines[] = "try{if(localStorage.getItem('cdp_uid')!=={$id})cdp.identify({$id})}catch(e){cdp.identify({$id})}";
+            } else {
+                $hash = self::js($hash);
+                $identify = "cdp.identify({$id},{},{userHash:{$hash}})";
+                $lines[] = "try{if(localStorage.getItem('cdp_uid')!=={$id}||localStorage.getItem('cdp_uhash')!=={$hash}){$identify}}catch(e){{$identify}}";
+            }
         }
 
         // Store MCP (AI chat bot): the signed-in customer is confirmed for the bot without a code.
@@ -112,6 +122,17 @@ class Tracker
         $id = $this->app->make('auth')->id();
 
         return \is_scalar($id) && (string) $id !== '' ? (string) $id : null;
+    }
+
+    /**
+     * The signature of the user id with the identity key (ONETRACE_IDENTITY_KEY): the platform trusts the user id of
+     * the browser only with it when the project requires signed user ids.
+     */
+    protected function userHash(string $userId): ?string
+    {
+        $key = $this->app->make('config')->get('onetrace.identity_key');
+
+        return \is_string($key) && trim($key) !== '' ? $this->app->make(Client::class)->userHash($userId) : null;
     }
 
     protected function viteNonce(): ?string

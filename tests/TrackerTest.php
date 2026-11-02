@@ -6,6 +6,8 @@ namespace OneTrace\Laravel\Tests;
 
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
+use OneTrace\Client;
+use OneTrace\Laravel\Facades\OneTrace;
 use OneTrace\Laravel\Tests\Fixtures\User;
 use OneTrace\Laravel\Tracker;
 
@@ -41,6 +43,22 @@ final class TrackerTest extends TestCase
 
         self::assertStringContainsString("localStorage.getItem('cdp_uid')!==\"1\")cdp.identify(\"1\")", $html);
         self::assertStringNotContainsString('anna@example.com', $html);
+    }
+
+    public function testSignsTheUserIdWithTheIdentityKey(): void
+    {
+        config(['onetrace.identity_key' => 'cdp_ik_test']);
+        $this->app->forgetInstance(Client::class);
+        $this->actingAs(User::create(['name' => 'Anna', 'email' => 'anna@example.com']));
+
+        // hash_hmac('sha256', '1', 'cdp_ik_test') — IdentityVerification::hash() of the platform.
+        $hash = '"' . hash_hmac('sha256', '1', 'cdp_ik_test') . '"';
+        $html = Blade::render('@onetrace');
+
+        self::assertSame(hash_hmac('sha256', '1', 'cdp_ik_test'), OneTrace::userHash(1));
+        self::assertStringContainsString("if(localStorage.getItem('cdp_uid')!==\"1\"||localStorage.getItem('cdp_uhash')!=={$hash})cdp.identify(\"1\",{},{userHash:{$hash}})", $html);
+        self::assertStringContainsString("catch(e){cdp.identify(\"1\",{},{userHash:{$hash}})}", $html);
+        self::assertStringNotContainsString('cdp_ik_test', $html);
     }
 
     public function testOptionsAndEscaping(): void

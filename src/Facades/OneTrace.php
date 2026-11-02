@@ -22,6 +22,7 @@ use OneTrace\Laravel\Testing\OneTraceFake;
  * @method static void resolveAnonymousIdUsing(?callable $resolver)
  * @method static bool enabled()
  * @method static \OneTrace\Client client()
+ * @method static string|null userHash(string|int $userId)
  * @method static \OneTrace\Resource\Events events()
  * @method static \OneTrace\Resource\Profiles profiles()
  * @method static \OneTrace\Resource\Products products()

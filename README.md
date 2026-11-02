@@ -24,9 +24,12 @@ Add the keys from your project's **API keys** section to `.env`:
 
 ```dotenv
 ONETRACE_URL=https://cdp.onetrace.pro   # or the domain of your white-label brand
-ONETRACE_WRITE_KEY=cdp_wk_…            # events and the website tracker
-ONETRACE_SECRET_KEY=cdp_sk_…           # products, profiles, segments, journeys, campaigns
+ONETRACE_WRITE_KEY=cdp_wk_…            # the website tracker, recommendations, search
+ONETRACE_SECRET_KEY=cdp_sk_…           # events, products, profiles, segments, journeys, campaigns
+ONETRACE_IDENTITY_KEY=cdp_ik_…         # signs the signed-in user's id for the tracker (Website → Connection → Server)
 ```
+
+Events of the server go with the secret key when it is set: purchases sent with the public write key do not award loyalty points, and their user id is dropped when the project requires signed user ids.
 
 To change the defaults, publish the config: `php artisan vendor:publish --tag=onetrace-config`. `php artisan about` shows the current settings.
 
@@ -41,7 +44,7 @@ Put the directive into the `<head>` of your layout:
 </head>
 ```
 
-It prints the tracker install code with your write key and records the page view. For a signed-in user it links the browser to the user's id (only the id is printed into the page, no personal data), and on the first page after logout it resets the visitor so the next person on the device starts fresh. Options: `@onetrace(['nonce' => $nonce, 'page' => false, 'ignore_bots' => false, 'language' => 'page'])`; Vite's CSP nonce is used automatically. `language` — the visitor's language for translated products and template versions: `page` (the `lang` of `<html>`, e.g. `app()->getLocale()` in your layout), `auto` (the browser, by default), a code or `false`.
+It prints the tracker install code with your write key and records the page view. For a signed-in user it links the browser to the user's id (only the id is printed into the page, no personal data), and on the first page after logout it resets the visitor so the next person on the device starts fresh. Options: `@onetrace(['nonce' => $nonce, 'page' => false, 'ignore_bots' => false, 'language' => 'page'])`; Vite's CSP nonce is used automatically. With `ONETRACE_IDENTITY_KEY` the user id comes signed — `cdp.identify(id, {}, { userHash })`: the platform trusts the user id of the browser only with the signature once the project turns on **Require signature** (Website → Connection → Server). `OneTrace::userHash($id)` gives the signature for your own pages or apps. `language` — the visitor's language for translated products and template versions: `page` (the `lang` of `<html>`, e.g. `app()->getLocale()` in your layout), `auto` (the browser, by default), a code or `false`.
 
 Search engine crawlers, link previews, monitoring services and automated browsers (Playwright, Selenium) are not tracked: the tracker sends no events and sets no cookies for them, while recommendation widgets are still shown. To track everyone — for example, to test the integration with an automated browser — set `ONETRACE_IGNORE_BOTS=false` (or `'ignore_bots' => false` in the directive) in that environment. Product events, widgets and Web Push in the browser are described in your account under **Site**.
 
@@ -327,8 +330,9 @@ Also: `assertTrackedTimes()`, `assertPageViewed()`, `assertProductDeleted()`, `a
 | Key | Env | Default | |
 |---|---|---|---|
 | `url` | `ONETRACE_URL` | `https://cdp.onetrace.pro` | your account's address |
-| `write_key` | `ONETRACE_WRITE_KEY` | — | events, tracker |
-| `secret_key` | `ONETRACE_SECRET_KEY` | — | products and the management API |
+| `write_key` | `ONETRACE_WRITE_KEY` | — | tracker, recommendations, search; events without a secret key |
+| `secret_key` | `ONETRACE_SECRET_KEY` | — | events, products and the management API |
+| `identity_key` | `ONETRACE_IDENTITY_KEY` | — | signs the user id printed by `@onetrace` |
 | `enabled` | `ONETRACE_ENABLED` | `true` | |
 | `send` | `ONETRACE_SEND` | `after_response` | `after_response`, `queue`, `sync` |
 | `queue.connection`, `queue.name` | `ONETRACE_QUEUE_CONNECTION`, `ONETRACE_QUEUE` | default | for `queue` |
