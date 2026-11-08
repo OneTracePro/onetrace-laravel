@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## 1.15.0 — 2026-11-08
+
+- Store MCP contract v2 — orders from AI shopping assistants (ChatGPT, Claude …) through the store MCP of OneTrace: `quoteOrder(array $args, Context $ctx)` and `createOrder(array $args, Context $ctx)` in your `StoreMcpHandlers` (`store_quote_order`, `store_create_order`). With both methods the server announces contract version 2; `store_quote_order` is a read tool, `store_create_order` is offered when listed in `store_mcp.tools`. The arguments are checked before your method (1–20 products, quantity 1–99, shipping address, delivery method); `createOrder()` runs only with the customer's consent and an idempotency key and answers with the order number and the payment link.
+- Guest orders: while `store_create_order` is offered, confirmation codes are on even without `findCustomer()` — a code with `purpose: "order"` goes to any email or phone (`sendCode()` gets an empty customer id), the guest token gives `$ctx->guestEmail()` / `$ctx->guestPhone()`; `store_get_customer` answers a guest without calling `getCustomer()`.
+- `$ctx->source` (`chat` or `assistant`) and `$ctx->assistant` (`chatgpt`, `claude`, `perplexity`, `gemini`, `copilot`, `other`): tag the order with them and send `ai_assistant` in its order event.
+- Action results are kept in the cache store of the codes for a day: a repeated call with the same idempotency key (an order, a cancellation …) gets the same result without running the method again; `store_mcp.idempotency => false` turns this off.
+- Requires onetrace-php 1.18.
+
 ## 1.14.0 — 2026-11-02
 
 - Signed user ids: `ONETRACE_IDENTITY_KEY` (`onetrace.identity_key`, the identity key of the project under Website → Connection → Server) — `@onetrace` prints `cdp.identify(id, {}, { userHash })` for the signed-in user and identifies again when the signature in the browser differs; `OneTrace::userHash($id)` gives the signature for your own pages and apps. A project that requires the signature drops a user id from the browser without it.

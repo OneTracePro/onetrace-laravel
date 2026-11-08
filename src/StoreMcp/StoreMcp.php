@@ -14,7 +14,8 @@ use OneTrace\StoreMcp\Server;
 use OneTrace\StoreMcp\Verification;
 
 /**
- * The store MCP server from config('onetrace.store_mcp'): handlers, allowed tools, customer tokens and codes.
+ * The store MCP server from config('onetrace.store_mcp'): handlers, allowed tools, customer tokens, codes and kept
+ * action results (store MCP contract v1 and v2).
  */
 final class StoreMcp
 {
@@ -58,14 +59,17 @@ final class StoreMcp
         $enabled = \is_array($config['tools'] ?? null) ? array_values(array_filter($config['tools'], 'is_string'))
             : array_keys(array_filter(Contract::tools(), static fn (array $tool): bool => $tool['read_only']));
 
+        $codes = new CacheCodeStore($this->app->make('cache')->store(\is_string($config['cache'] ?? null) ? $config['cache'] : null));
+        // Contract v2: with both order tools and store_create_order allowed, guests confirm an address by code
+        // (purpose "order") even when the store does not look customers up.
+        $takesOrders = array_diff(Contract::ORDER_TOOLS, array_keys($tools)) === [] && \in_array('store_create_order', $enabled, true);
+
         return new Server((string) $config['key'], $this->tokens(), $tools, [
             'name' => (string) ($config['name'] ?? 'laravel-store'),
             'enabled' => $enabled,
-            'verification' => $handlers->verifiesByCode() ? new Verification(
-                new CacheCodeStore($this->app->make('cache')->store(\is_string($config['cache'] ?? null) ? $config['cache'] : null)),
-                [$handlers, 'findCustomer'],
-                [$handlers, 'sendCode'],
-            ) : null,
+            'verification' => $handlers->verifiesByCode() || $takesOrders ? new Verification($codes, [$handlers, 'findCustomer'], [$handlers, 'sendCode']) : null,
+            // A repeated action with the same idempotency key gets the kept result instead of running again.
+            'idempotency' => (bool) ($config['idempotency'] ?? true) ? $codes : null,
         ]);
     }
 

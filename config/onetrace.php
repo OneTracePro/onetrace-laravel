@@ -91,10 +91,12 @@ return [
     ],
 
     /*
-    | MCP server of the store for the OneTrace AI chat bot (store MCP contract v1): the bot answers customers with
-    | live data of the store (orders, tracking, stock, delivery, returns) and, if allowed, cancels orders, creates
-    | returns and changes delivery. Implement the tools in a class extending OneTrace\Laravel\StoreMcp\StoreMcpHandlers,
-    | enable the server and run `php artisan onetrace:store-mcp` to connect it (secret key with chats.manage).
+    | MCP server of the store for the OneTrace AI chat bot and AI shopping assistants (store MCP contract v1 and
+    | v2): the bot answers customers with live data of the store (orders, tracking, stock, delivery, returns) and, if
+    | allowed, cancels orders, creates returns and changes delivery; assistants (ChatGPT, Claude …) price and place
+    | orders when quoteOrder() and createOrder() are implemented and store_create_order is allowed. Implement the
+    | tools in a class extending OneTrace\Laravel\StoreMcp\StoreMcpHandlers, enable the server and run
+    | `php artisan onetrace:store-mcp` to connect it (secret key with chats.manage).
     */
     'store_mcp' => [
         'enabled' => (bool) env('ONETRACE_STORE_MCP', false),
@@ -107,8 +109,11 @@ return [
         'handlers' => null, // e.g. App\OneTrace\StoreTools::class
         // Tools the bot may use; null — every implemented read tool, actions only when listed here.
         'tools' => null,
-        // Cache store of confirmation codes; null — the default store.
+        // Cache store of confirmation codes and kept action results; null — the default store.
         'cache' => null,
+        // Keep action results (orders, cancellations …) for a day: a repeated call with the same idempotency key
+        // gets the same result without running the method again.
+        'idempotency' => true,
         'name' => env('APP_NAME', 'laravel-store'),
     ],
 

@@ -273,9 +273,95 @@ ONETRACE_STORE_MCP_KEY=   # php artisan onetrace:store-mcp --key
 
 Set `'store_mcp.handlers' => App\OneTrace\StoreTools::class` in `config/onetrace.php` and run `php artisan onetrace:store-mcp` once (secret key with `chats.manage`): the platform checks the server at `POST /onetrace/mcp` and the bot starts using it.
 
-- Method names follow the tools: `getCustomer`, `findOrders`, `getOrder`, `getTracking`, `checkAvailability`, `getDeliveryOptions`, `getReturnPolicy`, `cancelOrder`, `createReturn`, `changeDelivery`; a tool without a method is not offered. `$ctx->customerId` is the confirmed customer, `$ctx->language` — the conversation language.
-- Read tools are offered by default; list actions in `store_mcp.tools` to allow them. Actions run only after the customer agreed in the chat, with `$ctx->idempotencyKey`.
+- Method names follow the tools: `getCustomer`, `findOrders`, `getOrder`, `getTracking`, `checkAvailability`, `getDeliveryOptions`, `getReturnPolicy`, `cancelOrder`, `createReturn`, `changeDelivery`, `quoteOrder`, `createOrder`; a tool without a method is not offered. `$ctx->customerId` is the confirmed customer, `$ctx->language` — the conversation language.
+- Read tools are offered by default; list actions in `store_mcp.tools` to allow them. Actions run only after the customer agreed in the chat, with `$ctx->idempotencyKey`; the result is kept in the cache for a day, so a repeated call with the same key gets it again without running your method (`store_mcp.idempotency => false` turns this off).
 - `@onetrace` confirms a signed-in user for the bot: it passes a signed customer token to the tracker (`cdp.chatCustomer()`). Guests and messenger customers confirm with a code (`findCustomer()` + `sendCode()`).
+
+### Orders from AI shopping assistants (contract v2)
+
+AI shopping assistants (ChatGPT, Claude, Perplexity …) find your products through the store MCP of OneTrace. With `quoteOrder()` and `createOrder()` they can also price and place an order: the customer confirms the email or phone with a code, agrees to the items, address, delivery and total, and pays on your website by the payment link.
+
+```php
+use App\Models\Order;
+use App\Services\Checkout;
+use OneTrace\Laravel\Facades\OneTrace;
+use OneTrace\Laravel\StoreMcp\StoreMcpHandlers;
+use OneTrace\StoreMcp\{Context, ToolError};
+
+final class StoreTools extends StoreMcpHandlers
+{
+    public function __construct(private readonly Checkout $checkout)
+    {
+    }
+
+    // $args['items']: [['product_id' => 'sku-1', 'quantity' => 2], ...]; $args['shipping']: the given address fields
+    public function quoteOrder(array $args, Context $ctx): array
+    {
+        $cart = $this->checkout->price($args['items'], $args['shipping'], $args['shipping_method']);
+
+        return [
+            'items' => $cart->lines(),                      // [{ product_id, name, quantity, price, total }]
+            'unavailable' => $cart->unavailableIds(),
+            'subtotal' => ['amount' => $cart->subtotal, 'currency' => 'EUR'],
+            'discount' => ['amount' => $cart->discount, 'currency' => 'EUR'],
+            'shipping_methods' => $cart->shippingMethods(), // [{ id, name, price, min_days, max_days }]
+            'shipping_method' => $cart->shippingMethod,
+            'shipping_price' => ['amount' => $cart->shippingPrice, 'currency' => 'EUR'],
+            'total' => ['amount' => $cart->total, 'currency' => 'EUR'],
+            'payment_methods' => [['id' => 'card', 'name' => 'Card on the website']],
+        ];
+    }
+
+    // A customer ($ctx->customerId) or a guest ($ctx->guestEmail(), $ctx->guestPhone()); the customer agreed to the quote.
+    public function createOrder(array $args, Context $ctx): array
+    {
+        $cart = $this->checkout->price($args['items'], $args['shipping'], $args['shipping_method']);
+
+        if ($cart->priceChanged()) {
+            throw new ToolError(ToolError::INVALID_INPUT, __('The price of a product has changed: quote the order again.'));
+        }
+
+        $order = Order::create([
+            'user_id' => $ctx->customerId,
+            'email' => $ctx->guestEmail(),
+            'phone' => $ctx->guestPhone() ?? $args['shipping']['phone'] ?? null,
+            'shipping' => $args['shipping'],
+            'shipping_method' => $args['shipping_method'],
+            'payment_method' => $args['payment_method'] ?? 'card',
+            'comment' => $args['comment'],
+            'total' => $cart->total,
+            'source' => $ctx->source,       // "assistant"
+            'assistant' => $ctx->assistant, // chatgpt, claude, perplexity, gemini, copilot or other
+        ]);
+        $order->lines()->createMany($cart->lines());
+
+        OneTrace::track('order_completed', [
+            'order_id' => $order->number,
+            'amount' => $order->total,
+            'ai_assistant' => $ctx->assistant, // the assistant's orders in OneTrace reports
+        ], array_filter(['messageId' => 'order-' . $order->number, 'userId' => $ctx->customerId]));
+
+        return [
+            'order' => $order->number,
+            'status' => 'pending',
+            'total' => ['amount' => $order->total, 'currency' => 'EUR'],
+            'payment_status' => 'pending',
+            'payment_url' => route('orders.pay', $order), // the customer pays on your website
+        ];
+    }
+}
+```
+
+```php
+// config/onetrace.php, store_mcp — the assistants place orders only when you allow store_create_order
+'tools' => ['store_start_verification', 'store_verify', 'store_get_customer', 'store_get_order', 'store_quote_order', 'store_create_order'],
+```
+
+- The server announces contract version 2 when both methods exist, otherwise version 1 without either tool. `store_quote_order` is a read tool; `store_create_order` is offered only when listed in `store_mcp.tools`, and then the assistant confirms the customer with a code.
+- The arguments are checked before your method (`OneTrace\StoreMcp\OrderInput`): 1–20 products, quantity 1–99 (a repeated product added up), shipping fields as trimmed strings with the country in ISO 3166-1 alpha-2; an order needs `first_name`, `last_name`, `country`, `city`, `address` and `shipping_method`, `payment_method` and `comment` may be null. Anything else answers `invalid_input`. `product_id` is the id you send in the catalog (`toOneTraceProduct()`, the variant for a variable product).
+- `createOrder()` runs only with the customer's consent and an idempotency key; a repeat with the same key returns the kept order. Check prices and stock again and throw `invalid_input` when they changed instead of placing the order at the old price.
+- Guest orders: while `store_create_order` is offered, codes with `purpose: "order"` go to any email or phone, also without an account (your `sendCode()` gets an empty customer id), even when you do not implement `findCustomer()`. A guest has `$ctx->customerId === null` and `$ctx->guestContact` — the email (lower case) or phone (digits with `+`); the server answers `store_get_customer` for a guest itself (`{ id: null, email }`) when you offer it, other customer tools answer `auth_required`.
+- `$ctx->source` is `assistant` for AI shopping assistants and `chat` for the chat bot, `$ctx->assistant` names the assistant: mark the order with it and send `ai_assistant` in the properties of its order event.
 
 ## The rest of the API
 
